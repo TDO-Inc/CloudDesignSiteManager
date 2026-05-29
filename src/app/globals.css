@@ -1,0 +1,136 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Metropolis is the system font */
+
+@layer base {
+  :root {
+    /* Default sans stack — referenced by Tailwind's font-sans utility.
+       Metropolis is loaded via @fontsource/metropolis in app/layout.tsx. */
+    --font-sans: Metropolis, system-ui, -apple-system, "Segoe UI", sans-serif;
+
+    /* shadcn semantic tokens tuned to TDO palette */
+    --background: 0 0% 100%;
+    --foreground: 206 60% 14%; /* #0F2B3C-ish */
+
+    --card: 0 0% 100%;
+    --card-foreground: 206 60% 14%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 206 60% 14%;
+
+    --primary: 159 71% 36%; /* #1A9E75 */
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 206 60% 14%;
+
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 16% 47%;
+
+    --accent: 159 71% 36%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 73% 59%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 159 71% 36%;
+
+    --radius: 0.75rem;
+  }
+
+  .dark {
+    --background: 206 60% 8%;
+    --foreground: 0 0% 98%;
+    --card: 206 50% 12%;
+    --card-foreground: 0 0% 98%;
+    --popover: 206 50% 12%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 159 71% 42%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 206 40% 18%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 206 40% 18%;
+    --muted-foreground: 215 20% 65%;
+    --accent: 159 71% 42%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 73% 50%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 206 40% 20%;
+    --input: 206 40% 20%;
+    --ring: 159 71% 42%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    /* Metropolis renders slightly small at the same px size as Inter; nudge
+       the base size so visual rhythm matches what we designed against. */
+    font-size: 15.5px;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: Metropolis, system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-weight: 300; /* Light body */
+    font-feature-settings: "rlig" 1, "calt" 1, "ss01" 1;
+    letter-spacing: 0.005em;
+  }
+
+  /* Hierarchy — bolder weights step up with importance. */
+  h1 {
+    font-weight: 800; /* ExtraBold */
+    letter-spacing: -0.02em;
+  }
+  h2 {
+    font-weight: 700; /* Bold */
+    letter-spacing: -0.015em;
+  }
+  h3 {
+    font-weight: 600; /* SemiBold */
+    letter-spacing: -0.01em;
+  }
+  h4,
+  h5,
+  h6 {
+    font-weight: 600;
+    letter-spacing: -0.005em;
+  }
+
+  /* Labels and form controls — medium so they read clearly at small sizes. */
+  label,
+  th {
+    font-weight: 500;
+  }
+
+  /* Buttons stay semibold for tap-target prominence. */
+  button {
+    font-weight: 600;
+  }
+
+  /* "strong" should be bolder than the surrounding light body. */
+  strong,
+  b {
+    font-weight: 700;
+  }
+
+  /* Inputs / textareas — regular weight so user-entered text doesn't look spindly. */
+  input,
+  textarea,
+  select {
+    font-weight: 400;
+  }
+
+  /* Numerals — tabular figures for tables and metrics. */
+  table,
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+}
