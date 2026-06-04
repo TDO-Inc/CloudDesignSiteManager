@@ -41,6 +41,38 @@ export function UnifiedSignIn({ defaultRole = "client", devMode = false }: Unifi
   const [submitting, setSubmitting] = useState(false);
   const [clientError, setClientError] = useState<string | null>(null);
 
+  // Clients can sign in with a password or request a magic link. Password is
+  // the default; "link" doubles as the first-time / forgot-password path.
+  const [clientMode, setClientMode] = useState<"password" | "link">("password");
+  const [clientPassword, setClientPassword] = useState("");
+  const [clientPwSubmitting, setClientPwSubmitting] = useState(false);
+  const [clientPwError, setClientPwError] = useState<string | null>(null);
+
+  async function onClientPasswordSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setClientPwError(null);
+    setClientPwSubmitting(true);
+    try {
+      const res = await fetch("/api/auth/client/password", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ email, password: clientPassword }),
+      });
+      if (!res.ok) {
+        setClientPwError(
+          res.status === 401
+            ? "That email and password didn't match. New here, or no password set yet? Use a sign-in link."
+            : "Sign-in failed. Try again.",
+        );
+        return;
+      }
+      const { redirectTo } = (await res.json()) as { redirectTo: string };
+      router.push(redirectTo as never);
+    } finally {
+      setClientPwSubmitting(false);
+    }
+  }
+
   // Staff password sign-in state
   const [staffEmail, setStaffEmail] = useState("");
   const [staffPassword, setStaffPassword] = useState("");
@@ -178,35 +210,98 @@ export function UnifiedSignIn({ defaultRole = "client", devMode = false }: Unifi
 
       <div className="mt-8">
         {role === "client" ? (
-          <form onSubmit={onClientSubmit} className="space-y-5">
-            <div className="space-y-1.5">
-              <Label htmlFor="email">Email address</Label>
-              <Input
-                id="email"
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@your-practice.com"
-                autoFocus
-                className="h-11"
-              />
-            </div>
-            {clientError && (
-              <p className="text-sm text-brand-coral">{clientError}</p>
+          <div className="space-y-5">
+            {clientMode === "password" ? (
+              <form onSubmit={onClientPasswordSubmit} className="space-y-4">
+                <div className="space-y-1.5">
+                  <Label htmlFor="client-email">Email address</Label>
+                  <Input
+                    id="client-email"
+                    type="email"
+                    required
+                    autoFocus
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="you@your-practice.com"
+                    className="h-11"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="client-password">Password</Label>
+                  <Input
+                    id="client-password"
+                    type="password"
+                    required
+                    value={clientPassword}
+                    onChange={(e) => setClientPassword(e.target.value)}
+                    className="h-11"
+                  />
+                </div>
+                {clientPwError && (
+                  <p className="text-sm text-brand-coral">{clientPwError}</p>
+                )}
+                <Button
+                  type="submit"
+                  size="lg"
+                  className="h-11 w-full text-sm"
+                  disabled={clientPwSubmitting}
+                >
+                  <IconLock size={16} /> {clientPwSubmitting ? "Signing in…" : "Sign in"}
+                </Button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setClientPwError(null);
+                    setClientMode("link");
+                  }}
+                  className="text-xs text-brand-green hover:underline"
+                >
+                  First time here, or forgot your password? Email me a sign-in link
+                </button>
+              </form>
+            ) : (
+              <form onSubmit={onClientSubmit} className="space-y-4">
+                <div className="space-y-1.5">
+                  <Label htmlFor="email">Email address</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="you@your-practice.com"
+                    autoFocus
+                    className="h-11"
+                  />
+                </div>
+                {clientError && (
+                  <p className="text-sm text-brand-coral">{clientError}</p>
+                )}
+                <Button
+                  type="submit"
+                  size="lg"
+                  className="h-11 w-full text-sm"
+                  disabled={submitting}
+                >
+                  <IconMail size={16} /> {submitting ? "Sending…" : "Email me a sign-in link"}
+                </Button>
+                <p className="text-xs leading-relaxed text-muted-foreground">
+                  We&apos;ll only send a link if your email is on the contact list
+                  for an active project. Links expire after 15 minutes. You can set
+                  a password from your account once you&apos;re in.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setClientError(null);
+                    setClientMode("password");
+                  }}
+                  className="text-xs text-brand-green hover:underline"
+                >
+                  Sign in with a password instead
+                </button>
+              </form>
             )}
-            <Button
-              type="submit"
-              size="lg"
-              className="h-11 w-full text-sm"
-              disabled={submitting}
-            >
-              {submitting ? "Sending…" : "Email me a sign-in link"}
-            </Button>
-            <p className="text-xs leading-relaxed text-muted-foreground">
-              We&apos;ll only send a link if your email is on the contact list
-              for an active project. Links expire after 15 minutes.
-            </p>
             {devMode && (
               <div className="rounded-md border border-dashed border-amber-300 bg-amber-50/60 p-4">
                 <div className="flex items-center gap-2 text-amber-900">
@@ -216,7 +311,7 @@ export function UnifiedSignIn({ defaultRole = "client", devMode = false }: Unifi
                   </span>
                 </div>
                 <p className="mt-2 text-xs leading-relaxed text-amber-900/80">
-                  Skip magic-link and sign in as a demo client. Available in development only.
+                  Skip sign-in and continue as a demo client. Available in development only.
                 </p>
                 <Button
                   type="button"
@@ -230,7 +325,7 @@ export function UnifiedSignIn({ defaultRole = "client", devMode = false }: Unifi
                 </Button>
               </div>
             )}
-          </form>
+          </div>
         ) : (
           <div className="space-y-5">
             <form onSubmit={onStaffPasswordSubmit} className="space-y-4">

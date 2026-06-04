@@ -77,6 +77,61 @@ interface ProjectSpec {
 }
 
 const PROJECT_SPECS: ProjectSpec[] = [
+  // ── Demo login project (demo@tdo4endo.com dev-bypass client) ────────────
+  // Gives the "Demo Client" dev sign-in a real, populated project so the
+  // dashboard, content briefs, files, and progress bar all render.
+  {
+    organizationName: "Demo Endodontics",
+    projectName: "Demo Endodontics — Website Project",
+    template: "Standard",
+    currentMilestoneSlug: "content_collection",
+    ageDays: 10,
+    client: {
+      email: "demo@tdo4endo.com",
+      name: "Demo Client",
+    },
+    doneSectionSlugs: ["office_details", "branding", "home"],
+    inProgressSections: [
+      {
+        slug: "doctor_bios",
+        content: {
+          doctors: [
+            {
+              full_name: "Dr. Alex Demo",
+              credentials: "DDS, MS",
+              bio: "Dr. Demo is a board-certified endodontist focused on comfortable, microscope-assisted root canal therapy.",
+              education: "DDS — University of Michigan; MS — Endodontics, NYU",
+              memberships: "American Association of Endodontists",
+              specialties: "Microscopic endodontics, retreatment",
+              personal_interests: "",
+            },
+          ],
+        },
+      },
+      {
+        slug: "services",
+        content: {
+          standard_services: ["Root canal treatment", "Root canal retreatment"],
+          root_canal_notes: "",
+        },
+      },
+    ],
+    files: [
+      { category: "logo_branding", filename: "demo-endo-logo.svg", mimeType: "image/svg+xml", sizeBytes: 16_200, daysAgo: 8 },
+      { category: "doctor_photos", filename: "dr-demo-headshot.jpg", mimeType: "image/jpeg", sizeBytes: 815_000, daysAgo: 6 },
+      { category: "office_exterior", filename: "office-front.jpg", mimeType: "image/jpeg", sizeBytes: 1_650_000, daysAgo: 6 },
+    ],
+    notes: [
+      "Demo project for internal testing — exercises the populated client dashboard, content briefs, and file views.",
+    ],
+    extraActivity: [
+      { action: "project.created", daysAgo: 10 },
+      { action: "project.status_changed", metadata: { from: "kickoff", to: "content_collection" }, daysAgo: 8 },
+      { action: "brief.submitted", metadata: { sectionSlug: "office_details" }, daysAgo: 6, byClient: true },
+      { action: "brief.submitted", metadata: { sectionSlug: "branding" }, daysAgo: 5, byClient: true },
+    ],
+    links: { staging_url: "https://staging.demoendo.tdo-portal.example.com" },
+  },
   {
     organizationName: "Roberts Endodontics",
     projectName: "Roberts Endodontics — Website Refresh",

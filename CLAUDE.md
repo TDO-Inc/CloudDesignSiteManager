@@ -7,19 +7,23 @@
 **V1 core is built — now in the hardening / pre-pilot phase.**
 The spec (`tdo-client-portal-spec.md`) is finalized, all 12 open questions resolved (see below), and UI/UX design is complete (`TDO-Client-Portal-UI-UX-Design-Spec.docx`). The Next.js app is implemented and runs against a Supabase Postgres instance: client magic-link auth, staff auth (behind a pluggable provider), client dashboard, staff workspace (project list/filters/detail), content briefs with auto-save, file uploads (Azure SAS), in-app + email notifications, client↔staff messaging, activity log, audit log, per-project zip export, archive/delete, knowledge base + AI assistant, template-driven config, and multi-office model. `npm run typecheck`, `npm run lint`, and `npm run test` all pass.
 
+### Authentication (decided)
+- **Clients** sign in with **either a password or a magic link** (`/api/auth/client/password` + the existing magic-link flow). Clients are invite-only (no open registration); magic-link doubles as the first-time / forgot-password path, and a client sets/changes their password from `/dashboard/settings`. Passwords use the same scrypt hashing as staff (`lib/auth/password.ts`).
+- **Staff** sign in with **email + password** (`/api/auth/staff/password`, the primary method). Accounts are provisioned via `npm run staff:add`.
+- **Intranet SSO is optional/deferred**, not a pilot blocker — the pluggable `AuthProvider` interface stays in the codebase so the services manager can wire OIDC/SAML later. The dev auto-login provider refuses to run in production unless `ALLOW_ADMIN_BYPASS=true`.
+
 ### Remaining before live clients
 Production blockers (mostly the services-manager-owned pluggable pieces):
 1. **Real virus scanning** — `scan-providers/noop.ts` always returns `clean`. Plug in Defender for Storage / ClamAV behind the existing `ScanProvider` interface.
-2. **Real staff SSO** — `auth/providers/dev.ts` auto-logs-in a dev user. Wire the intranet provider behind the existing `AuthProvider` interface.
-3. **Sentry** — package installed but never initialized; add `sentry.*.config.ts` + DSN (error monitoring is a core spec requirement).
-4. **Azure Blob + Resend** — code is ready; needs `AZURE_STORAGE_*` credentials and SPF/DKIM for `webadmin@tdo4endo.com`.
+2. **Sentry** — package installed but never initialized; add `sentry.*.config.ts` + DSN (error monitoring is a core spec requirement).
+3. **Azure Blob + Resend** — code is ready; needs `AZURE_STORAGE_*` credentials and SPF/DKIM for `webadmin@tdo4endo.com`. Resend is also required for client magic-link delivery.
 
 Likely-needed before pilot:
-5. Broader test coverage (unit tests exist for password hashing, `cn`, email templates, and template config; DB-touching flows are untested).
-6. A `next build` CI job (current CI runs typecheck/lint/test only — build needs DB + secrets).
-7. Privacy / ToS pages.
+4. Broader test coverage (unit tests exist for password hashing, `cn`, email templates, and template config; DB-touching flows are untested).
+5. A `next build` CI job (current CI runs typecheck/lint/test only — build needs DB + secrets).
+6. Privacy / ToS pages.
 
-Note: the dev-bypass demo client (`demo@tdo4endo.com`) isn't a seeded project member, so it always shows the empty dashboard state — sign in as a seeded client (e.g. `dr.roberts@…`) via magic link to see a populated project.
+Note: the dev-bypass demo client (`demo@tdo4endo.com`) is seeded (via `db:seed`) as the client on the "Demo Endodontics — Website Project" project, so the dev sign-in resolves to that real user and shows a populated dashboard, content briefs, and files. If the DB isn't seeded, the dev sign-in falls back to a cookie-only session that shows the empty dashboard state.
 
 ## Team
 - **Jared Ardine** — product owner, planning, design

@@ -13,6 +13,7 @@ import {
   IconSeo,
   IconAccessible,
   IconPlus,
+  IconSettings,
   IconLogout,
   IconSparkles,
   IconSend,
@@ -54,6 +55,10 @@ const mainNav = [
 const resourcesNav = [
   { href: "https://lms.tdos.dental/courses/8", label: "Training", icon: IconBook, external: true },
   { href: "/dashboard/help", label: "Help center", icon: IconHelpCircle },
+];
+
+const accountNav = [
+  { href: "/dashboard/settings", label: "Account & password", icon: IconSettings },
 ];
 
 const additionalServicesNav = [
@@ -203,6 +208,17 @@ export function ClientShell({
                   label={item.label}
                   icon={item.icon}
                   active={pathname.startsWith(item.href)}
+                />
+              ))}
+            </SidebarSection>
+            <SidebarSection label="Account">
+              {accountNav.map((item) => (
+                <SidebarLink
+                  key={item.href}
+                  href={item.href}
+                  label={item.label}
+                  icon={item.icon}
+                  active={pathname === item.href || pathname.startsWith(item.href + "/")}
                 />
               ))}
             </SidebarSection>

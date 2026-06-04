@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { eq, and, isNull, desc } from "drizzle-orm";
+import { eq, and, isNull, desc, inArray } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { notifications, projectMessages, projectMembers } from "@/lib/db/schema";
 import { getCurrentClient, getCurrentStaff } from "@/lib/auth/current-user";
@@ -24,36 +24,35 @@ export async function GET() {
   // Count unread notifications
   const unreadNotifications = notifRows.filter((n) => !n.readAt).length;
 
-  // Count unread messages from staff (for client) or from client (for staff).
-  // We count messages where readAt IS NULL and isFromStaff matches the sender being the other party.
+  // Count unread messages from the *other* party on the user's projects:
+  // staff messages for a client, client messages for staff. `readAt` is set
+  // globally on a message when the opposite party opens that project's thread,
+  // so a message is "unread for me" when it's from the other party and unread.
+  // Staff are also rows in project_members, so the same membership scope works
+  // for both — we just flip which sender direction counts.
   let unreadMessages = 0;
   try {
-    if (client) {
-      // Client: count unread messages from staff on their projects
-      const memberships = await db
-        .select({ projectId: projectMembers.projectId })
-        .from(projectMembers)
-        .where(eq(projectMembers.userId, user.id));
+    const memberships = await db
+      .select({ projectId: projectMembers.projectId })
+      .from(projectMembers)
+      .where(eq(projectMembers.userId, user.id));
 
-      if (memberships.length > 0) {
-        const projectIds = memberships.map((m) => m.projectId);
-        // Count messages where isFromStaff = true and readAt IS NULL
-        let count = 0;
-        for (const projectId of projectIds) {
-          const rows = await db
-            .select({ id: projectMessages.id })
-            .from(projectMessages)
-            .where(
-              and(
-                eq(projectMessages.projectId, projectId),
-                eq(projectMessages.isFromStaff, true),
-                isNull(projectMessages.readAt),
-              ),
-            );
-          count += rows.length;
-        }
-        unreadMessages = count;
-      }
+    if (memberships.length > 0) {
+      const projectIds = memberships.map((m) => m.projectId);
+      // A client cares about staff-authored messages; staff cares about
+      // client-authored ones.
+      const fromOtherParty = client ? true : false;
+      const rows = await db
+        .select({ id: projectMessages.id })
+        .from(projectMessages)
+        .where(
+          and(
+            inArray(projectMessages.projectId, projectIds),
+            eq(projectMessages.isFromStaff, fromOtherParty),
+            isNull(projectMessages.readAt),
+          ),
+        );
+      unreadMessages = rows.length;
     }
   } catch {
     unreadMessages = 0;
