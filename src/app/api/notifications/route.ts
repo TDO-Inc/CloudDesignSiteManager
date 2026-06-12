@@ -15,10 +15,10 @@ export async function GET() {
   // Fetch last 20 notifications for this user
   const notifRows = await db
     .select()
+    .top(20)
     .from(notifications)
     .where(eq(notifications.userId, user.id))
     .orderBy(desc(notifications.createdAt))
-    .limit(20)
     .catch(() => []);
 
   // Count unread notifications

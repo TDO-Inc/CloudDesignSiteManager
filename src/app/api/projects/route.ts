@@ -62,8 +62,9 @@ export async function POST(req: Request) {
   if (!organization) {
     const [created] = await db
       .insert(organizations)
-      .values({ name: parsed.data.organizationName })
-      .returning();
+      .output()
+      .values({ name: parsed.data.organizationName });
+    if (!created) return NextResponse.json({ error: "insert_failed" }, { status: 500 });
     organization = created;
   }
 
@@ -73,8 +74,9 @@ export async function POST(req: Request) {
   if (!clientUser) {
     const [created] = await db
       .insert(users)
-      .values({ email: clientEmail, name: parsed.data.clientName, userType: "client" })
-      .returning();
+      .output()
+      .values({ email: clientEmail, name: parsed.data.clientName, userType: "client" });
+    if (!created) return NextResponse.json({ error: "insert_failed" }, { status: 500 });
     clientUser = created;
   } else if (clientUser.userType !== "client") {
     return NextResponse.json({ error: "email_belongs_to_staff" }, { status: 400 });
@@ -96,6 +98,7 @@ export async function POST(req: Request) {
 
   const [project] = await db
     .insert(projects)
+    .output()
     .values({
       organizationId: organization.id,
       templateId: template.id,
@@ -106,17 +109,20 @@ export async function POST(req: Request) {
       templateSnapshot: snapshot,
       links: {},
       websiteTheme: parsed.data.websiteTheme ?? null,
-    })
-    .returning();
+    });
+  if (!project) return NextResponse.json({ error: "insert_failed" }, { status: 500 });
 
   // Add members: staff creator as owner, client as client.
-  await db
-    .insert(projectMembers)
-    .values([
-      { projectId: project.id, userId: staff.id, role: "owner" },
-      { projectId: project.id, userId: clientUser.id, role: "client" },
-    ])
-    .onConflictDoNothing();
+  try {
+    await db
+      .insert(projectMembers)
+      .values([
+        { projectId: project.id, userId: staff.id, role: "owner" },
+        { projectId: project.id, userId: clientUser.id, role: "client" },
+      ]);
+  } catch {
+    // ignore duplicate key (member already exists)
+  }
 
   await db.insert(activityLog).values({
     projectId: project.id,

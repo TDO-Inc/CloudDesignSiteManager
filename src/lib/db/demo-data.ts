@@ -379,8 +379,8 @@ const PROJECT_SPECS: ProjectSpec[] = [
 async function ensureOrg(name: string) {
   const existing = await db.query.organizations.findFirst({ where: eq(organizations.name, name) });
   if (existing) return existing;
-  const [created] = await db.insert(organizations).values({ name }).returning();
-  return created;
+  const [created] = await db.insert(organizations).output().values({ name });
+  return created!;
 }
 
 async function ensureClientUser(spec: ClientUserSpec) {
@@ -394,9 +394,9 @@ async function ensureClientUser(spec: ClientUserSpec) {
   }
   const [created] = await db
     .insert(users)
-    .values({ email: lower, name: spec.name, userType: "client" })
-    .returning();
-  return created;
+    .output()
+    .values({ email: lower, name: spec.name, userType: "client" });
+  return created!;
 }
 
 function daysAgoDate(days: number): Date {
@@ -437,6 +437,7 @@ export async function seedDemoData({ adminUserId, templates, officeId, staffUser
       };
       const [created] = await db
         .insert(projects)
+        .output()
         .values({
           organizationId: org.id,
           templateId: template.id,
@@ -448,8 +449,11 @@ export async function seedDemoData({ adminUserId, templates, officeId, staffUser
           links: spec.links ?? {},
           websiteTheme: spec.websiteTheme ?? null,
           createdAt: daysAgoDate(spec.ageDays),
-        })
-        .returning();
+        });
+      if (!created) {
+        console.warn(`  ! insert failed for "${spec.projectName}" — skipping`);
+        continue;
+      }
       project = created;
       console.log(`  + project "${spec.projectName}" created`);
     } else {
@@ -472,7 +476,11 @@ export async function seedDemoData({ adminUserId, templates, officeId, staffUser
         if (uid) memberRows.push({ projectId: project.id, userId: uid, role: s.role });
       }
     }
-    await db.insert(projectMembers).values(memberRows).onConflictDoNothing();
+    try {
+      await db.insert(projectMembers).values(memberRows);
+    } catch {
+      // ignore duplicate key (member already exists)
+    }
 
     // Content briefs — done + in-progress, derived from the spec.
     for (const sectionSlug of spec.doneSectionSlugs) {

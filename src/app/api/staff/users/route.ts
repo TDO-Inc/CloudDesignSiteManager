@@ -76,14 +76,15 @@ export async function POST(req: Request) {
 
   const [created] = await db
     .insert(users)
+    .output()
     .values({
       email,
       name: parsed.data.name,
       userType: "staff",
       passwordHash,
       isAdmin: parsed.data.isAdmin,
-    })
-    .returning();
+    });
+  if (!created) return NextResponse.json({ error: "insert_failed" }, { status: 500 });
 
   await db.insert(auditLog).values({
     userId: admin.id,

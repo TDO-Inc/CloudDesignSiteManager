@@ -20,13 +20,14 @@ export async function GET(req: Request) {
     if (!user) {
       const [created] = await db
         .insert(users)
+        .output()
         .values({
           email,
           name: profile.name,
           userType: "staff",
           lastLoginAt: new Date(),
-        })
-        .returning();
+        });
+      if (!created) throw new Error("User insert returned no rows");
       user = created;
     } else {
       await db.update(users).set({ lastLoginAt: new Date() }).where(eq(users.id, user.id));

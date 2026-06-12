@@ -47,6 +47,7 @@ export async function POST(
 
   const [created] = await db
     .insert(files)
+    .output()
     .values({
       projectId,
       uploadedByUserId: user.id,
@@ -56,8 +57,8 @@ export async function POST(
       sizeBytes: parsed.data.sizeBytes,
       mimeType: parsed.data.contentType,
       scanStatus: "pending",
-    })
-    .returning();
+    });
+  if (!created) return NextResponse.json({ error: "insert_failed" }, { status: 500 });
 
   // Kick off scan. NoOpScanProvider returns "clean" immediately.
   let scanStatus: "pending" | "clean" | "infected" | "error" = "pending";

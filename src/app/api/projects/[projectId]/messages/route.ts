@@ -85,13 +85,14 @@ export async function POST(
 
   const [message] = await db
     .insert(projectMessages)
+    .output()
     .values({
       projectId,
       userId: user.id,
       body: parsed.data.body,
       isFromStaff: userIsStaff,
-    })
-    .returning();
+    });
+  if (!message) return NextResponse.json({ error: "insert_failed" }, { status: 500 });
 
   await db.insert(activityLog).values({
     projectId,

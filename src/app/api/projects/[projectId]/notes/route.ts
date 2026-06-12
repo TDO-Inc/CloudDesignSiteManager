@@ -18,8 +18,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ project
 
   const [note] = await db
     .insert(internalNotes)
-    .values({ projectId, authorUserId: user.id, body: parsed.data.body })
-    .returning();
+    .output()
+    .values({ projectId, authorUserId: user.id, body: parsed.data.body });
+  if (!note) return NextResponse.json({ error: "insert_failed" }, { status: 500 });
 
   await db.insert(activityLog).values({
     projectId,

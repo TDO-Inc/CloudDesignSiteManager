@@ -44,13 +44,14 @@ export async function POST(req: Request) {
       if (!user) {
         const [created] = await db
           .insert(users)
+          .output()
           .values({
             email,
             name: parsed.data.name,
             userType: "staff",
             lastLoginAt: new Date(),
-          })
-          .returning();
+          });
+        if (!created) throw new Error("User insert returned no rows");
         user = created;
       } else {
         if (user.userType !== "staff") {

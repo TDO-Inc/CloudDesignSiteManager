@@ -33,10 +33,11 @@ export default async function BriefPage({ params }: PageProps) {
     if (!brief) {
       const [created] = await db
         .insert(contentBriefs)
-        .values({ projectId: project.id, sectionSlug, status: "not_started", content: {} })
-        .returning();
+        .output()
+        .values({ projectId: project.id, sectionSlug, status: "not_started", content: {} });
       brief = created;
     }
+    if (!brief) throw new Error("Brief insert returned no rows");
     briefContent = (brief.content as Record<string, unknown>) ?? {};
     briefStatus = brief.status;
     briefRevisionNote = brief.revisionNote ?? null;

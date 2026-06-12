@@ -29,12 +29,12 @@ export default async function StaffDashboardPage({ searchParams }: PageProps) {
         projectName: projects.name,
         senderName: users.name,
       })
+      .top(10)
       .from(projectMessages)
       .innerJoin(projects, eq(projects.id, projectMessages.projectId))
       .innerJoin(users, eq(users.id, projectMessages.userId))
       .where(and(eq(projectMessages.isFromStaff, false), isNull(projectMessages.readAt)))
       .orderBy(desc(projectMessages.createdAt))
-      .limit(10)
       .catch(() => []),
     db
       .select({
@@ -45,11 +45,11 @@ export default async function StaffDashboardPage({ searchParams }: PageProps) {
         projectName: projects.name,
         actorName: users.name,
       })
+      .top(8)
       .from(activityLog)
       .innerJoin(projects, eq(projects.id, activityLog.projectId))
       .leftJoin(users, eq(users.id, activityLog.userId))
       .orderBy(desc(activityLog.createdAt))
-      .limit(8)
       .catch(() => []),
   ]);
 

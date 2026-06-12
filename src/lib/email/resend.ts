@@ -46,6 +46,7 @@ export async function sendEmail(input: SendEmailInput): Promise<SendEmailResult>
   // crash mid-send still leaves us with a record.
   const [logRow] = await db
     .insert(emailDeliveryLog)
+    .output()
     .values({
       toEmail: input.to,
       fromEmail: FROM_EMAIL,
@@ -55,8 +56,8 @@ export async function sendEmail(input: SendEmailInput): Promise<SendEmailResult>
       userId: input.userId,
       status: "queued",
       metadata: input.metadata ?? {},
-    })
-    .returning();
+    });
+  if (!logRow) return { ok: false, error: "email_log_insert_failed" };
 
   if (!client) {
     // Dev fallback — print and "succeed".

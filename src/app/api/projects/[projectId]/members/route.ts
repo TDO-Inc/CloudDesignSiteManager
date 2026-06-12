@@ -46,8 +46,9 @@ export async function POST(
     }
     const [created] = await db
       .insert(users)
-      .values({ email: email.toLowerCase(), name: name.trim(), userType: "client" })
-      .returning();
+      .output()
+      .values({ email: email.toLowerCase(), name: name.trim(), userType: "client" });
+    if (!created) return NextResponse.json({ error: "insert_failed" }, { status: 500 });
     user = created;
   }
 

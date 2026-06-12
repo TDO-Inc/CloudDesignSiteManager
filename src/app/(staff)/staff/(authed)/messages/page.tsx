@@ -15,11 +15,11 @@ export default async function StaffMessagesPage() {
       projectName: projects.name,
       senderName: users.name,
     })
+    .top(150)
     .from(projectMessages)
     .innerJoin(projects, eq(projects.id, projectMessages.projectId))
     .innerJoin(users, eq(users.id, projectMessages.userId))
     .orderBy(desc(projectMessages.createdAt))
-    .limit(150)
     .catch(() => []);
 
   const unread = messages.filter((m) => !m.isFromStaff && !m.readAt);

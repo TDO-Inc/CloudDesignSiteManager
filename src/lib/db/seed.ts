@@ -33,9 +33,9 @@ async function ensureServiceType(name: string, slug: string) {
   if (existing) return existing;
   const [created] = await db
     .insert(serviceTypes)
-    .values({ name, slug, active: true })
-    .returning();
-  return created;
+    .output()
+    .values({ name, slug, active: true });
+  return created!;
 }
 
 async function ensureOffice(name: string, slug: string) {
@@ -45,9 +45,9 @@ async function ensureOffice(name: string, slug: string) {
   if (existing) return existing;
   const [created] = await db
     .insert(offices)
-    .values({ name, slug, active: true })
-    .returning();
-  return created;
+    .output()
+    .values({ name, slug, active: true });
+  return created!;
 }
 
 async function ensureTemplate(
@@ -68,6 +68,7 @@ async function ensureTemplate(
   }
   const [created] = await db
     .insert(projectTemplates)
+    .output()
     .values({
       serviceTypeId,
       name,
@@ -78,10 +79,9 @@ async function ensureTemplate(
       defaultSettings: websiteDefaultSettings,
       version: 1,
       active: true,
-    })
-    .returning();
+    });
   console.log(`  + template "${name}" (v1) created`);
-  return created;
+  return created!;
 }
 
 async function ensureStaffUser(email: string, name: string) {
@@ -93,10 +93,10 @@ async function ensureStaffUser(email: string, name: string) {
   }
   const [created] = await db
     .insert(users)
-    .values({ email: lower, name, userType: "staff", isAdmin: false })
-    .returning();
+    .output()
+    .values({ email: lower, name, userType: "staff", isAdmin: false });
   console.log(`  + staff ${lower} created`);
-  return created;
+  return created!;
 }
 
 async function ensureAdmin(email: string, name: string, password: string) {
@@ -117,10 +117,10 @@ async function ensureAdmin(email: string, name: string, password: string) {
   }
   const [created] = await db
     .insert(users)
-    .values({ email: lower, name, userType: "staff", passwordHash, isAdmin: true })
-    .returning();
+    .output()
+    .values({ email: lower, name, userType: "staff", passwordHash, isAdmin: true });
   console.log(`  + admin ${lower} created`);
-  return created;
+  return created!;
 }
 
 async function main() {

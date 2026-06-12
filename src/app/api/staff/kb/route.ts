@@ -43,6 +43,7 @@ export async function POST(req: Request) {
 
   const [article] = await db
     .insert(kbArticles)
+    .output()
     .values({
       title: parsed.data.title,
       content: parsed.data.content,
@@ -50,8 +51,8 @@ export async function POST(req: Request) {
       tags: parsed.data.tags ?? [],
       active: true,
       createdByUserId: staff.id,
-    })
-    .returning();
+    });
+  if (!article) return NextResponse.json({ error: "insert_failed" }, { status: 500 });
 
   return NextResponse.json({ ok: true, article });
 }

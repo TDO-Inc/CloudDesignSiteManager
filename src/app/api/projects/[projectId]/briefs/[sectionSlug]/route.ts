@@ -74,6 +74,7 @@ export async function PATCH(
   } else {
     const [created] = await db
       .insert(contentBriefs)
+      .output()
       .values({
         projectId,
         sectionSlug,
@@ -81,9 +82,8 @@ export async function PATCH(
         content: (update.content as Record<string, unknown>) ?? {},
         submittedAt: update.submittedAt,
         submittedByUserId: update.submittedByUserId,
-      })
-      .returning();
-    savedStatus = created.status;
+      });
+    savedStatus = created?.status ?? (update.status ?? "in_progress");
   }
 
   // On submit: log activity + notify staff PMs.

@@ -15,12 +15,12 @@ export default async function ActivityLogPage() {
       orgName: organizations.name,
       actorName: users.name,
     })
+    .top(200)
     .from(activityLog)
     .innerJoin(projects, eq(projects.id, activityLog.projectId))
     .innerJoin(organizations, eq(organizations.id, projects.organizationId))
     .leftJoin(users, eq(users.id, activityLog.userId))
     .orderBy(desc(activityLog.createdAt))
-    .limit(200)
     .catch(() => []);
 
   return (

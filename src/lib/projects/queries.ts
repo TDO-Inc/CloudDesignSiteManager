@@ -106,11 +106,11 @@ export async function getProjectActivity(projectId: string, limit = 50) {
       createdAt: activityLog.createdAt,
       userName: users.name,
     })
+    .top(limit)
     .from(activityLog)
     .leftJoin(users, eq(users.id, activityLog.userId))
     .where(eq(activityLog.projectId, projectId))
-    .orderBy(desc(activityLog.createdAt))
-    .limit(limit);
+    .orderBy(desc(activityLog.createdAt));
   return rows;
 }
 
