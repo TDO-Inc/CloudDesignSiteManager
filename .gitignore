@@ -39,8 +39,8 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# drizzle
-/drizzle/
+# drizzle — exclude auto-generated snapshots; keep hand-written SQL migrations
+/drizzle/meta/
 
 # sentry
 .sentryclirc
