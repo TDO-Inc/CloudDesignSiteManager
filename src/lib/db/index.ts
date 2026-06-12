@@ -1,32 +1,39 @@
-import { drizzle, type PostgresJsDatabase } from "drizzle-orm/postgres-js";
-import postgres from "postgres";
+import { drizzle, type NodeMsSqlDatabase } from "drizzle-orm/node-mssql";
+import * as sql from "mssql";
 import * as schema from "./schema";
 
 declare global {
   // eslint-disable-next-line no-var
-  var __pgClient: ReturnType<typeof postgres> | undefined;
+  var __mssqlPool: sql.ConnectionPool | undefined;
   // eslint-disable-next-line no-var
-  var __dbInstance: PostgresJsDatabase<typeof schema> | undefined;
+  var __dbInstance: NodeMsSqlDatabase<typeof schema> | undefined;
 }
 
-function getDb(): PostgresJsDatabase<typeof schema> {
+function getDb(): NodeMsSqlDatabase<typeof schema> {
   if (global.__dbInstance) return global.__dbInstance;
 
   const connectionString = process.env.DATABASE_URL;
   if (!connectionString) {
     throw new Error("DATABASE_URL is not set");
   }
-  const client =
-    global.__pgClient ??
-    postgres(connectionString, {
-      max: 10,
-      idle_timeout: 30,
-      prepare: false,
-    });
 
-  const instance = drizzle(client, { schema });
+  const pool =
+    global.__mssqlPool ??
+    new sql.ConnectionPool(connectionString);
+
+  // Fire-and-forget: start connecting so the pool is ready by the time the
+  // first query arrives. Queries will fail with "Not connected" if they race
+  // ahead of this, but in practice the server is up long before the first
+  // request is handled.
+  if (!pool.connected && !pool.connecting) {
+    pool.connect().catch((err: unknown) => {
+      console.error("[db] Connection pool failed to connect:", err);
+    });
+  }
+
+  const instance = drizzle(pool, { schema });
   if (process.env.NODE_ENV !== "production") {
-    global.__pgClient = client;
+    global.__mssqlPool = pool;
     global.__dbInstance = instance;
   } else {
     global.__dbInstance = instance;
@@ -38,8 +45,8 @@ function getDb(): PostgresJsDatabase<typeof schema> {
  * Drizzle client — actual connection is created on first access, not at
  * module load, so `next build` can collect page data without DATABASE_URL.
  */
-export const db: PostgresJsDatabase<typeof schema> = new Proxy(
-  {} as PostgresJsDatabase<typeof schema>,
+export const db: NodeMsSqlDatabase<typeof schema> = new Proxy(
+  {} as NodeMsSqlDatabase<typeof schema>,
   {
     get(_t, prop) {
       const real = getDb();
