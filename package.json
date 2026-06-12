@@ -46,9 +46,9 @@
     "drizzle-orm": "^0.36.4",
     "iron-session": "^8.0.4",
     "lucide-react": "^0.477.0",
+    "mssql": "^12.5.5",
     "nanoid": "^5.1.5",
     "next": "^15.5.18",
-    "postgres": "^3.4.5",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-dropzone": "^14.3.6",
@@ -60,6 +60,7 @@
   },
   "devDependencies": {
     "@types/archiver": "^6.0.3",
+    "@types/mssql": "^12.3.0",
     "@types/node": "^22.10.5",
     "@types/react": "^19.0.7",
     "@types/react-dom": "^19.0.3",
