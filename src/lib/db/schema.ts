@@ -1,12 +1,11 @@
-import { relations } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 import {
   mssqlTable,
-  uniqueidentifier,
   nvarchar,
   bit,
   int,
   bigint,
-  datetimeoffset,
+  datetimeOffset,
   primaryKey,
   index,
   uniqueIndex,
@@ -16,6 +15,13 @@ import {
 /* ------------------------------------------------------------------ */
 /* Custom column helpers                                              */
 /* ------------------------------------------------------------------ */
+
+// SQL Server UNIQUEIDENTIFIER column (UUID equivalent).
+const uniqueidentifier = customType<{ data: string; driverData: string }>({
+  dataType() {
+    return "uniqueidentifier";
+  },
+});
 
 // Stores typed JSON as nvarchar(max) with automatic serialization.
 function jsonMssql<TData>(name: string) {
@@ -126,17 +132,17 @@ export type TemplateDefaultSettings = {
 };
 
 export const serviceTypes = mssqlTable("service_types", {
-  id: uniqueidentifier("id").primaryKey().defaultRandom(),
+  id: uniqueidentifier("id").primaryKey().default(sql`NEWID()`),
   name: nvarchar("name", { length: "max" }).notNull(),
   slug: nvarchar("slug", { length: 255 }).notNull().unique(),
   active: bit("active").notNull().default(true),
-  createdAt: datetimeoffset("created_at").notNull().defaultNow(),
+  createdAt: datetimeOffset("created_at").notNull().default(sql`GETDATE()`),
 });
 
 export const projectTemplates = mssqlTable(
   "project_templates",
   {
-    id: uniqueidentifier("id").primaryKey().defaultRandom(),
+    id: uniqueidentifier("id").primaryKey().default(sql`NEWID()`),
     serviceTypeId: uniqueidentifier("service_type_id")
       .notNull()
       .references(() => serviceTypes.id, { onDelete: "restrict" }),
@@ -150,28 +156,26 @@ export const projectTemplates = mssqlTable(
       .default({} as TemplateDefaultSettings),
     version: int("version").notNull().default(1),
     active: bit("active").notNull().default(true),
-    createdAt: datetimeoffset("created_at").notNull().defaultNow(),
+    createdAt: datetimeOffset("created_at").notNull().default(sql`GETDATE()`),
   },
-  (table) => ({
-    serviceTypeIdx: index("project_templates_service_type_idx").on(
-      table.serviceTypeId,
-    ),
-  }),
+  (table) => [
+    index("project_templates_service_type_idx").on(table.serviceTypeId),
+  ],
 );
 
 export const offices = mssqlTable("offices", {
-  id: uniqueidentifier("id").primaryKey().defaultRandom(),
+  id: uniqueidentifier("id").primaryKey().default(sql`NEWID()`),
   name: nvarchar("name", { length: "max" }).notNull(),
   slug: nvarchar("slug", { length: 255 }).notNull().unique(),
   active: bit("active").notNull().default(true),
-  createdAt: datetimeoffset("created_at").notNull().defaultNow(),
+  createdAt: datetimeOffset("created_at").notNull().default(sql`GETDATE()`),
 });
 
 export const organizations = mssqlTable("organizations", {
-  id: uniqueidentifier("id").primaryKey().defaultRandom(),
+  id: uniqueidentifier("id").primaryKey().default(sql`NEWID()`),
   name: nvarchar("name", { length: "max" }).notNull(),
   hubspotCompanyId: nvarchar("hubspot_company_id", { length: 255 }),
-  createdAt: datetimeoffset("created_at").notNull().defaultNow(),
+  createdAt: datetimeOffset("created_at").notNull().default(sql`GETDATE()`),
 });
 
 /* ------------------------------------------------------------------ */
@@ -179,35 +183,35 @@ export const organizations = mssqlTable("organizations", {
 /* ------------------------------------------------------------------ */
 
 export const users = mssqlTable("users", {
-  id: uniqueidentifier("id").primaryKey().defaultRandom(),
+  id: uniqueidentifier("id").primaryKey().default(sql`NEWID()`),
   email: nvarchar("email", { length: 255 }).notNull().unique(),
   name: nvarchar("name", { length: 255 }).notNull(),
   userType: nvarchar("user_type", { length: 10 }).notNull().$type<UserType>(),
   passwordHash: nvarchar("password_hash", { length: "max" }),
   isAdmin: bit("is_admin").notNull().default(false),
-  deactivatedAt: datetimeoffset("deactivated_at"),
-  lastLoginAt: datetimeoffset("last_login_at"),
-  createdAt: datetimeoffset("created_at").notNull().defaultNow(),
+  deactivatedAt: datetimeOffset("deactivated_at"),
+  lastLoginAt: datetimeOffset("last_login_at"),
+  createdAt: datetimeOffset("created_at").notNull().default(sql`GETDATE()`),
 });
 
 export const magicLinks = mssqlTable(
   "magic_links",
   {
-    id: uniqueidentifier("id").primaryKey().defaultRandom(),
+    id: uniqueidentifier("id").primaryKey().default(sql`NEWID()`),
     userId: uniqueidentifier("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
     tokenHash: nvarchar("token_hash", { length: 255 }).notNull(),
-    expiresAt: datetimeoffset("expires_at").notNull(),
-    usedAt: datetimeoffset("used_at"),
+    expiresAt: datetimeOffset("expires_at").notNull(),
+    usedAt: datetimeOffset("used_at"),
     requestedIp: nvarchar("requested_ip", { length: 45 }),
     userAgent: nvarchar("user_agent", { length: "max" }),
-    createdAt: datetimeoffset("created_at").notNull().defaultNow(),
+    createdAt: datetimeOffset("created_at").notNull().default(sql`GETDATE()`),
   },
-  (table) => ({
-    tokenHashIdx: uniqueIndex("magic_links_token_hash_idx").on(table.tokenHash),
-    userIdx: index("magic_links_user_idx").on(table.userId),
-  }),
+  (table) => [
+    uniqueIndex("magic_links_token_hash_idx").on(table.tokenHash),
+    index("magic_links_user_idx").on(table.userId),
+  ],
 );
 
 /* ------------------------------------------------------------------ */
@@ -229,7 +233,7 @@ export type ProjectLinks = Record<string, string>;
 export const projects = mssqlTable(
   "projects",
   {
-    id: uniqueidentifier("id").primaryKey().defaultRandom(),
+    id: uniqueidentifier("id").primaryKey().default(sql`NEWID()`),
     organizationId: uniqueidentifier("organization_id")
       .notNull()
       .references(() => organizations.id, { onDelete: "restrict" }),
@@ -251,15 +255,15 @@ export const projects = mssqlTable(
     hubspotDealId: nvarchar("hubspot_deal_id", { length: 255 }),
     mondayBoardId: nvarchar("monday_board_id", { length: 255 }),
     mondayItemId: nvarchar("monday_item_id", { length: 255 }),
-    launchedAt: datetimeoffset("launched_at"),
-    archivedAt: datetimeoffset("archived_at"),
-    createdAt: datetimeoffset("created_at").notNull().defaultNow(),
+    launchedAt: datetimeOffset("launched_at"),
+    archivedAt: datetimeOffset("archived_at"),
+    createdAt: datetimeOffset("created_at").notNull().default(sql`GETDATE()`),
   },
-  (table) => ({
-    organizationIdx: index("projects_organization_idx").on(table.organizationId),
-    officeIdx: index("projects_office_idx").on(table.officeId),
-    statusIdx: index("projects_status_idx").on(table.status),
-  }),
+  (table) => [
+    index("projects_organization_idx").on(table.organizationId),
+    index("projects_office_idx").on(table.officeId),
+    index("projects_status_idx").on(table.status),
+  ],
 );
 
 export const projectMembers = mssqlTable(
@@ -272,12 +276,12 @@ export const projectMembers = mssqlTable(
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
     role: nvarchar("role", { length: 20 }).notNull().$type<ProjectMemberRole>(),
-    addedAt: datetimeoffset("added_at").notNull().defaultNow(),
+    addedAt: datetimeOffset("added_at").notNull().default(sql`GETDATE()`),
   },
-  (table) => ({
-    pk: primaryKey({ columns: [table.projectId, table.userId] }),
-    userIdx: index("project_members_user_idx").on(table.userId),
-  }),
+  (table) => [
+    primaryKey({ columns: [table.projectId, table.userId] }),
+    index("project_members_user_idx").on(table.userId),
+  ],
 );
 
 /* ------------------------------------------------------------------ */
@@ -289,7 +293,7 @@ export type BriefContent = Record<string, unknown>;
 export const contentBriefs = mssqlTable(
   "content_briefs",
   {
-    id: uniqueidentifier("id").primaryKey().defaultRandom(),
+    id: uniqueidentifier("id").primaryKey().default(sql`NEWID()`),
     projectId: uniqueidentifier("project_id")
       .notNull()
       .references(() => projects.id, { onDelete: "cascade" }),
@@ -300,26 +304,26 @@ export const contentBriefs = mssqlTable(
       .$type<ContentBriefStatus>(),
     content: jsonMssql<BriefContent>("content").notNull().default({} as BriefContent),
     revisionNote: nvarchar("revision_note", { length: "max" }),
-    submittedAt: datetimeoffset("submitted_at"),
+    submittedAt: datetimeOffset("submitted_at"),
     submittedByUserId: uniqueidentifier("submitted_by_user_id").references(
       () => users.id,
       { onDelete: "set null" },
     ),
-    updatedAt: datetimeoffset("updated_at").notNull().defaultNow(),
-    createdAt: datetimeoffset("created_at").notNull().defaultNow(),
+    updatedAt: datetimeOffset("updated_at").notNull().default(sql`GETDATE()`),
+    createdAt: datetimeOffset("created_at").notNull().default(sql`GETDATE()`),
   },
-  (table) => ({
-    projectSectionIdx: uniqueIndex("content_briefs_project_section_idx").on(
+  (table) => [
+    uniqueIndex("content_briefs_project_section_idx").on(
       table.projectId,
       table.sectionSlug,
     ),
-  }),
+  ],
 );
 
 export const files = mssqlTable(
   "files",
   {
-    id: uniqueidentifier("id").primaryKey().defaultRandom(),
+    id: uniqueidentifier("id").primaryKey().default(sql`NEWID()`),
     projectId: uniqueidentifier("project_id")
       .notNull()
       .references(() => projects.id, { onDelete: "cascade" }),
@@ -336,19 +340,16 @@ export const files = mssqlTable(
       .notNull()
       .default("pending")
       .$type<FileScanStatus>(),
-    scanCompletedAt: datetimeoffset("scan_completed_at"),
+    scanCompletedAt: datetimeOffset("scan_completed_at"),
     scanDetails: jsonMssql<Record<string, unknown>>("scan_details"),
     supersededById: uniqueidentifier("superseded_by_id"),
     isFinal: bit("is_final").notNull().default(false),
-    createdAt: datetimeoffset("created_at").notNull().defaultNow(),
+    createdAt: datetimeOffset("created_at").notNull().default(sql`GETDATE()`),
   },
-  (table) => ({
-    projectCategoryIdx: index("files_project_category_idx").on(
-      table.projectId,
-      table.category,
-    ),
-    scanStatusIdx: index("files_scan_status_idx").on(table.scanStatus),
-  }),
+  (table) => [
+    index("files_project_category_idx").on(table.projectId, table.category),
+    index("files_scan_status_idx").on(table.scanStatus),
+  ],
 );
 
 /* ------------------------------------------------------------------ */
@@ -358,7 +359,7 @@ export const files = mssqlTable(
 export const internalNotes = mssqlTable(
   "internal_notes",
   {
-    id: uniqueidentifier("id").primaryKey().defaultRandom(),
+    id: uniqueidentifier("id").primaryKey().default(sql`NEWID()`),
     projectId: uniqueidentifier("project_id")
       .notNull()
       .references(() => projects.id, { onDelete: "cascade" }),
@@ -366,17 +367,17 @@ export const internalNotes = mssqlTable(
       .notNull()
       .references(() => users.id, { onDelete: "restrict" }),
     body: nvarchar("body", { length: "max" }).notNull(),
-    createdAt: datetimeoffset("created_at").notNull().defaultNow(),
+    createdAt: datetimeOffset("created_at").notNull().default(sql`GETDATE()`),
   },
-  (table) => ({
-    projectIdx: index("internal_notes_project_idx").on(table.projectId),
-  }),
+  (table) => [
+    index("internal_notes_project_idx").on(table.projectId),
+  ],
 );
 
 export const activityLog = mssqlTable(
   "activity_log",
   {
-    id: uniqueidentifier("id").primaryKey().defaultRandom(),
+    id: uniqueidentifier("id").primaryKey().default(sql`NEWID()`),
     projectId: uniqueidentifier("project_id")
       .notNull()
       .references(() => projects.id, { onDelete: "cascade" }),
@@ -387,20 +388,20 @@ export const activityLog = mssqlTable(
     metadata: jsonMssql<Record<string, unknown>>("metadata").default(
       {} as Record<string, unknown>,
     ),
-    createdAt: datetimeoffset("created_at").notNull().defaultNow(),
+    createdAt: datetimeOffset("created_at").notNull().default(sql`GETDATE()`),
   },
-  (table) => ({
-    projectCreatedIdx: index("activity_log_project_created_idx").on(
+  (table) => [
+    index("activity_log_project_created_idx").on(
       table.projectId,
       table.createdAt,
     ),
-  }),
+  ],
 );
 
 export const auditLog = mssqlTable(
   "audit_log",
   {
-    id: uniqueidentifier("id").primaryKey().defaultRandom(),
+    id: uniqueidentifier("id").primaryKey().default(sql`NEWID()`),
     userId: uniqueidentifier("user_id").references(() => users.id, {
       onDelete: "set null",
     }),
@@ -412,20 +413,17 @@ export const auditLog = mssqlTable(
     metadata: jsonMssql<Record<string, unknown>>("metadata").default(
       {} as Record<string, unknown>,
     ),
-    createdAt: datetimeoffset("created_at").notNull().defaultNow(),
+    createdAt: datetimeOffset("created_at").notNull().default(sql`GETDATE()`),
   },
-  (table) => ({
-    userCreatedIdx: index("audit_log_user_created_idx").on(
-      table.userId,
-      table.createdAt,
-    ),
-  }),
+  (table) => [
+    index("audit_log_user_created_idx").on(table.userId, table.createdAt),
+  ],
 );
 
 export const emailDeliveryLog = mssqlTable(
   "email_delivery_log",
   {
-    id: uniqueidentifier("id").primaryKey().defaultRandom(),
+    id: uniqueidentifier("id").primaryKey().default(sql`NEWID()`),
     toEmail: nvarchar("to_email", { length: 255 }).notNull(),
     fromEmail: nvarchar("from_email", { length: 255 }).notNull(),
     subject: nvarchar("subject", { length: 500 }).notNull(),
@@ -445,12 +443,12 @@ export const emailDeliveryLog = mssqlTable(
     metadata: jsonMssql<Record<string, unknown>>("metadata").default(
       {} as Record<string, unknown>,
     ),
-    createdAt: datetimeoffset("created_at").notNull().defaultNow(),
+    createdAt: datetimeOffset("created_at").notNull().default(sql`GETDATE()`),
   },
-  (table) => ({
-    projectIdx: index("email_delivery_log_project_idx").on(table.projectId),
-    statusIdx: index("email_delivery_log_status_idx").on(table.status),
-  }),
+  (table) => [
+    index("email_delivery_log_project_idx").on(table.projectId),
+    index("email_delivery_log_status_idx").on(table.status),
+  ],
 );
 
 /* ------------------------------------------------------------------ */
@@ -460,7 +458,7 @@ export const emailDeliveryLog = mssqlTable(
 export const projectMessages = mssqlTable(
   "project_messages",
   {
-    id: uniqueidentifier("id").primaryKey().defaultRandom(),
+    id: uniqueidentifier("id").primaryKey().default(sql`NEWID()`),
     projectId: uniqueidentifier("project_id")
       .notNull()
       .references(() => projects.id, { onDelete: "cascade" }),
@@ -469,20 +467,20 @@ export const projectMessages = mssqlTable(
       .references(() => users.id, { onDelete: "cascade" }),
     body: nvarchar("body", { length: "max" }).notNull(),
     isFromStaff: bit("is_from_staff").notNull().default(false),
-    readAt: datetimeoffset("read_at"),
-    createdAt: datetimeoffset("created_at").notNull().defaultNow(),
+    readAt: datetimeOffset("read_at"),
+    createdAt: datetimeOffset("created_at").notNull().default(sql`GETDATE()`),
   },
-  (table) => ({
-    projectCreatedIdx: index("project_messages_project_created_idx").on(
+  (table) => [
+    index("project_messages_project_created_idx").on(
       table.projectId,
       table.createdAt,
     ),
-    unreadIdx: index("project_messages_unread_idx").on(
+    index("project_messages_unread_idx").on(
       table.projectId,
       table.isFromStaff,
       table.readAt,
     ),
-  }),
+  ],
 );
 
 /* ------------------------------------------------------------------ */
@@ -492,7 +490,7 @@ export const projectMessages = mssqlTable(
 export const notifications = mssqlTable(
   "notifications",
   {
-    id: uniqueidentifier("id").primaryKey().defaultRandom(),
+    id: uniqueidentifier("id").primaryKey().default(sql`NEWID()`),
     userId: uniqueidentifier("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
@@ -502,25 +500,19 @@ export const notifications = mssqlTable(
     type: nvarchar("type", { length: 30 }).notNull().$type<NotificationType>(),
     body: nvarchar("body", { length: "max" }).notNull(),
     linkHref: nvarchar("link_href", { length: 500 }),
-    readAt: datetimeoffset("read_at"),
-    createdAt: datetimeoffset("created_at").notNull().defaultNow(),
+    readAt: datetimeOffset("read_at"),
+    createdAt: datetimeOffset("created_at").notNull().default(sql`GETDATE()`),
   },
-  (table) => ({
-    userCreatedIdx: index("notifications_user_created_idx").on(
-      table.userId,
-      table.createdAt,
-    ),
-    userUnreadIdx: index("notifications_user_unread_idx").on(
-      table.userId,
-      table.readAt,
-    ),
-  }),
+  (table) => [
+    index("notifications_user_created_idx").on(table.userId, table.createdAt),
+    index("notifications_user_unread_idx").on(table.userId, table.readAt),
+  ],
 );
 
 export const kbArticles = mssqlTable(
   "kb_articles",
   {
-    id: uniqueidentifier("id").primaryKey().defaultRandom(),
+    id: uniqueidentifier("id").primaryKey().default(sql`NEWID()`),
     title: nvarchar("title", { length: 500 }).notNull(),
     content: nvarchar("content", { length: "max" }).notNull(),
     category: nvarchar("category", { length: 100 }).notNull().default("general"),
@@ -530,13 +522,13 @@ export const kbArticles = mssqlTable(
       () => users.id,
       { onDelete: "set null" },
     ),
-    updatedAt: datetimeoffset("updated_at").notNull().defaultNow(),
-    createdAt: datetimeoffset("created_at").notNull().defaultNow(),
+    updatedAt: datetimeOffset("updated_at").notNull().default(sql`GETDATE()`),
+    createdAt: datetimeOffset("created_at").notNull().default(sql`GETDATE()`),
   },
-  (table) => ({
-    categoryIdx: index("kb_articles_category_idx").on(table.category),
-    activeIdx: index("kb_articles_active_idx").on(table.active),
-  }),
+  (table) => [
+    index("kb_articles_category_idx").on(table.category),
+    index("kb_articles_active_idx").on(table.active),
+  ],
 );
 
 /* ------------------------------------------------------------------ */
