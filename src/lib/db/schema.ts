@@ -1,87 +1,76 @@
 import { relations } from "drizzle-orm";
 import {
-  pgTable,
-  uuid,
-  text,
-  boolean,
-  integer,
+  mssqlTable,
+  uniqueidentifier,
+  nvarchar,
+  bit,
+  int,
   bigint,
-  timestamp,
-  jsonb,
-  pgEnum,
+  datetimeoffset,
   primaryKey,
   index,
   uniqueIndex,
-} from "drizzle-orm/pg-core";
+  customType,
+} from "drizzle-orm/mssql-core";
 
 /* ------------------------------------------------------------------ */
-/* Enums                                                              */
+/* Custom column helpers                                              */
 /* ------------------------------------------------------------------ */
 
-export const userTypeEnum = pgEnum("user_type", ["staff", "client"]);
+// Stores typed JSON as nvarchar(max) with automatic serialization.
+function jsonMssql<TData>(name: string) {
+  return customType<{ data: TData; driverData: string }>({
+    dataType() { return "nvarchar(max)"; },
+    toDriver(value: TData): string { return JSON.stringify(value); },
+    fromDriver(value: string): TData { return JSON.parse(value) as TData; },
+  })(name);
+}
 
-export const projectMemberRoleEnum = pgEnum("project_member_role", [
-  "owner",
-  "pm",
-  "designer",
-  "developer",
-  "client",
-]);
+// Stores string[] as a JSON array in nvarchar(max).
+function stringArrayMssql(name: string) {
+  return customType<{ data: string[]; driverData: string }>({
+    dataType() { return "nvarchar(max)"; },
+    toDriver(value: string[]): string { return JSON.stringify(value); },
+    fromDriver(value: string): string[] {
+      try { return JSON.parse(value) as string[]; }
+      catch { return []; }
+    },
+  })(name);
+}
 
-export const projectStatusEnum = pgEnum("project_status", [
-  "active",
-  "archived",
-  "cancelled",
-]);
+/* ------------------------------------------------------------------ */
+/* TypeScript unions (replace pgEnum — no DB-level enum type in MSSQL) */
+/* ------------------------------------------------------------------ */
 
-export const fileScanStatusEnum = pgEnum("file_scan_status", [
-  "pending",
-  "clean",
-  "infected",
-  "error",
-]);
-
-export const contentBriefStatusEnum = pgEnum("content_brief_status", [
-  "not_started",
-  "in_progress",
-  "submitted",
-  "needs_revision",
-  "complete",
-]);
-
-export const emailStatusEnum = pgEnum("email_status", [
-  "queued",
-  "sent",
-  "delivered",
-  "bounced",
-  "failed",
-]);
+export type UserType = "staff" | "client";
+export type ProjectMemberRole = "owner" | "pm" | "designer" | "developer" | "client";
+export type ProjectStatus = "active" | "archived" | "cancelled";
+export type FileScanStatus = "pending" | "clean" | "infected" | "error";
+export type ContentBriefStatus =
+  | "not_started"
+  | "in_progress"
+  | "submitted"
+  | "needs_revision"
+  | "complete";
+export type EmailStatus = "queued" | "sent" | "delivered" | "bounced" | "failed";
+export type NotificationType =
+  | "revision_requested"
+  | "message_received"
+  | "preview_ready"
+  | "milestone_changed"
+  | "brief_submitted";
 
 /* ------------------------------------------------------------------ */
 /* Reference data                                                     */
 /* ------------------------------------------------------------------ */
 
-export const serviceTypes = pgTable("service_types", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  name: text("name").notNull(),
-  slug: text("slug").notNull().unique(),
-  active: boolean("active").notNull().default(true),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-});
-
-/**
- * Template configuration shapes — encoded in jsonb so we can add service types
- * (SEO, Marketing, etc.) without schema migrations.
- */
 export type MilestoneConfig = {
   milestones: Array<{
     slug: string;
     label: string;
     description?: string;
     order: number;
-    badge_color?: string; // hex for UI badge
+    badge_color?: string;
   }>;
 };
 
@@ -90,7 +79,7 @@ export type FileCategoryConfig = {
     slug: string;
     label: string;
     description?: string;
-    accept?: string[]; // e.g. ["image/*", "application/pdf"]
+    accept?: string[];
     multiple?: boolean;
   }>;
 };
@@ -106,7 +95,7 @@ export type BriefFieldType =
   | "file"
   | "checkbox_list"
   | "select"
-  | "structured_list"; // e.g. team members
+  | "structured_list";
 
 export type BriefField = {
   key: string;
@@ -114,15 +103,15 @@ export type BriefField = {
   type: BriefFieldType;
   required?: boolean;
   help?: string;
-  options?: string[]; // for select / checkbox_list
-  itemSchema?: BriefField[]; // for structured_list
+  options?: string[];
+  itemSchema?: BriefField[];
 };
 
 export type BriefSection = {
   slug: string;
   label: string;
   description?: string;
-  icon?: string; // tabler icon name
+  icon?: string;
   required?: boolean;
   fields: BriefField[];
 };
@@ -136,27 +125,32 @@ export type TemplateDefaultSettings = {
   reminderDays?: number;
 };
 
-export const projectTemplates = pgTable(
+export const serviceTypes = mssqlTable("service_types", {
+  id: uniqueidentifier("id").primaryKey().defaultRandom(),
+  name: nvarchar("name", { length: "max" }).notNull(),
+  slug: nvarchar("slug", { length: 255 }).notNull().unique(),
+  active: bit("active").notNull().default(true),
+  createdAt: datetimeoffset("created_at").notNull().defaultNow(),
+});
+
+export const projectTemplates = mssqlTable(
   "project_templates",
   {
-    id: uuid("id").primaryKey().defaultRandom(),
-    serviceTypeId: uuid("service_type_id")
+    id: uniqueidentifier("id").primaryKey().defaultRandom(),
+    serviceTypeId: uniqueidentifier("service_type_id")
       .notNull()
       .references(() => serviceTypes.id, { onDelete: "restrict" }),
-    name: text("name").notNull(),
-    description: text("description"),
-    milestoneConfig: jsonb("milestone_config").$type<MilestoneConfig>().notNull(),
-    fileCategories: jsonb("file_categories").$type<FileCategoryConfig>().notNull(),
-    briefStructure: jsonb("brief_structure").$type<BriefStructure>().notNull(),
-    defaultSettings: jsonb("default_settings")
-      .$type<TemplateDefaultSettings>()
+    name: nvarchar("name", { length: "max" }).notNull(),
+    description: nvarchar("description", { length: "max" }),
+    milestoneConfig: jsonMssql<MilestoneConfig>("milestone_config").notNull(),
+    fileCategories: jsonMssql<FileCategoryConfig>("file_categories").notNull(),
+    briefStructure: jsonMssql<BriefStructure>("brief_structure").notNull(),
+    defaultSettings: jsonMssql<TemplateDefaultSettings>("default_settings")
       .notNull()
-      .default({}),
-    version: integer("version").notNull().default(1),
-    active: boolean("active").notNull().default(true),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
+      .default({} as TemplateDefaultSettings),
+    version: int("version").notNull().default(1),
+    active: bit("active").notNull().default(true),
+    createdAt: datetimeoffset("created_at").notNull().defaultNow(),
   },
   (table) => ({
     serviceTypeIdx: index("project_templates_service_type_idx").on(
@@ -165,61 +159,50 @@ export const projectTemplates = pgTable(
   }),
 );
 
-export const offices = pgTable("offices", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  name: text("name").notNull(),
-  slug: text("slug").notNull().unique(),
-  active: boolean("active").notNull().default(true),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
+export const offices = mssqlTable("offices", {
+  id: uniqueidentifier("id").primaryKey().defaultRandom(),
+  name: nvarchar("name", { length: "max" }).notNull(),
+  slug: nvarchar("slug", { length: 255 }).notNull().unique(),
+  active: bit("active").notNull().default(true),
+  createdAt: datetimeoffset("created_at").notNull().defaultNow(),
 });
 
-export const organizations = pgTable("organizations", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  name: text("name").notNull(),
-  hubspotCompanyId: text("hubspot_company_id"),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
+export const organizations = mssqlTable("organizations", {
+  id: uniqueidentifier("id").primaryKey().defaultRandom(),
+  name: nvarchar("name", { length: "max" }).notNull(),
+  hubspotCompanyId: nvarchar("hubspot_company_id", { length: 255 }),
+  createdAt: datetimeoffset("created_at").notNull().defaultNow(),
 });
 
 /* ------------------------------------------------------------------ */
 /* Users & auth                                                       */
 /* ------------------------------------------------------------------ */
 
-export const users = pgTable("users", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  email: text("email").notNull().unique(),
-  name: text("name").notNull(),
-  userType: userTypeEnum("user_type").notNull(),
-  /** scrypt-hashed password for staff who sign in with email + password. */
-  passwordHash: text("password_hash"),
-  /** True if this staff user can manage other staff (add, reset password, deactivate). */
-  isAdmin: boolean("is_admin").notNull().default(false),
-  /** Set to a timestamp when the staff user is deactivated. Clients never set this. */
-  deactivatedAt: timestamp("deactivated_at", { withTimezone: true }),
-  lastLoginAt: timestamp("last_login_at", { withTimezone: true }),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
+export const users = mssqlTable("users", {
+  id: uniqueidentifier("id").primaryKey().defaultRandom(),
+  email: nvarchar("email", { length: 255 }).notNull().unique(),
+  name: nvarchar("name", { length: 255 }).notNull(),
+  userType: nvarchar("user_type", { length: 10 }).notNull().$type<UserType>(),
+  passwordHash: nvarchar("password_hash", { length: "max" }),
+  isAdmin: bit("is_admin").notNull().default(false),
+  deactivatedAt: datetimeoffset("deactivated_at"),
+  lastLoginAt: datetimeoffset("last_login_at"),
+  createdAt: datetimeoffset("created_at").notNull().defaultNow(),
 });
 
-export const magicLinks = pgTable(
+export const magicLinks = mssqlTable(
   "magic_links",
   {
-    id: uuid("id").primaryKey().defaultRandom(),
-    userId: uuid("user_id")
+    id: uniqueidentifier("id").primaryKey().defaultRandom(),
+    userId: uniqueidentifier("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
-    tokenHash: text("token_hash").notNull(),
-    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
-    usedAt: timestamp("used_at", { withTimezone: true }),
-    requestedIp: text("requested_ip"),
-    userAgent: text("user_agent"),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
+    tokenHash: nvarchar("token_hash", { length: 255 }).notNull(),
+    expiresAt: datetimeoffset("expires_at").notNull(),
+    usedAt: datetimeoffset("used_at"),
+    requestedIp: nvarchar("requested_ip", { length: 45 }),
+    userAgent: nvarchar("user_agent", { length: "max" }),
+    createdAt: datetimeoffset("created_at").notNull().defaultNow(),
   },
   (table) => ({
     tokenHashIdx: uniqueIndex("magic_links_token_hash_idx").on(table.tokenHash),
@@ -231,11 +214,6 @@ export const magicLinks = pgTable(
 /* Projects                                                           */
 /* ------------------------------------------------------------------ */
 
-/**
- * Snapshot of the template at the moment the project was created, plus any
- * project-specific overrides. We do this so editing a template later never
- * breaks an in-flight project.
- */
 export type ProjectTemplateSnapshot = {
   templateId: string;
   templateVersion: number;
@@ -248,36 +226,34 @@ export type ProjectTemplateSnapshot = {
 
 export type ProjectLinks = Record<string, string>;
 
-export const projects = pgTable(
+export const projects = mssqlTable(
   "projects",
   {
-    id: uuid("id").primaryKey().defaultRandom(),
-    organizationId: uuid("organization_id")
+    id: uniqueidentifier("id").primaryKey().defaultRandom(),
+    organizationId: uniqueidentifier("organization_id")
       .notNull()
       .references(() => organizations.id, { onDelete: "restrict" }),
-    templateId: uuid("template_id")
+    templateId: uniqueidentifier("template_id")
       .notNull()
       .references(() => projectTemplates.id, { onDelete: "restrict" }),
-    officeId: uuid("office_id")
+    officeId: uniqueidentifier("office_id")
       .notNull()
       .references(() => offices.id, { onDelete: "restrict" }),
-    name: text("name").notNull(),
-    status: projectStatusEnum("status").notNull().default("active"),
-    currentMilestoneSlug: text("current_milestone_slug"),
-    templateSnapshot: jsonb("template_snapshot")
-      .$type<ProjectTemplateSnapshot>()
-      .notNull(),
-    links: jsonb("links").$type<ProjectLinks>().notNull().default({}),
-    /** Visual design theme chosen at project creation (e.g. "Pacific Beach"). */
-    websiteTheme: text("website_theme"),
-    hubspotDealId: text("hubspot_deal_id"),
-    mondayBoardId: text("monday_board_id"),
-    mondayItemId: text("monday_item_id"),
-    launchedAt: timestamp("launched_at", { withTimezone: true }),
-    archivedAt: timestamp("archived_at", { withTimezone: true }),
-    createdAt: timestamp("created_at", { withTimezone: true })
+    name: nvarchar("name", { length: "max" }).notNull(),
+    status: nvarchar("status", { length: 20 })
       .notNull()
-      .defaultNow(),
+      .default("active")
+      .$type<ProjectStatus>(),
+    currentMilestoneSlug: nvarchar("current_milestone_slug", { length: 255 }),
+    templateSnapshot: jsonMssql<ProjectTemplateSnapshot>("template_snapshot").notNull(),
+    links: jsonMssql<ProjectLinks>("links").notNull().default({} as ProjectLinks),
+    websiteTheme: nvarchar("website_theme", { length: 255 }),
+    hubspotDealId: nvarchar("hubspot_deal_id", { length: 255 }),
+    mondayBoardId: nvarchar("monday_board_id", { length: 255 }),
+    mondayItemId: nvarchar("monday_item_id", { length: 255 }),
+    launchedAt: datetimeoffset("launched_at"),
+    archivedAt: datetimeoffset("archived_at"),
+    createdAt: datetimeoffset("created_at").notNull().defaultNow(),
   },
   (table) => ({
     organizationIdx: index("projects_organization_idx").on(table.organizationId),
@@ -286,19 +262,17 @@ export const projects = pgTable(
   }),
 );
 
-export const projectMembers = pgTable(
+export const projectMembers = mssqlTable(
   "project_members",
   {
-    projectId: uuid("project_id")
+    projectId: uniqueidentifier("project_id")
       .notNull()
       .references(() => projects.id, { onDelete: "cascade" }),
-    userId: uuid("user_id")
+    userId: uniqueidentifier("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
-    role: projectMemberRoleEnum("role").notNull(),
-    addedAt: timestamp("added_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
+    role: nvarchar("role", { length: 20 }).notNull().$type<ProjectMemberRole>(),
+    addedAt: datetimeoffset("added_at").notNull().defaultNow(),
   },
   (table) => ({
     pk: primaryKey({ columns: [table.projectId, table.userId] }),
@@ -312,28 +286,27 @@ export const projectMembers = pgTable(
 
 export type BriefContent = Record<string, unknown>;
 
-export const contentBriefs = pgTable(
+export const contentBriefs = mssqlTable(
   "content_briefs",
   {
-    id: uuid("id").primaryKey().defaultRandom(),
-    projectId: uuid("project_id")
+    id: uniqueidentifier("id").primaryKey().defaultRandom(),
+    projectId: uniqueidentifier("project_id")
       .notNull()
       .references(() => projects.id, { onDelete: "cascade" }),
-    sectionSlug: text("section_slug").notNull(),
-    status: contentBriefStatusEnum("status").notNull().default("not_started"),
-    content: jsonb("content").$type<BriefContent>().notNull().default({}),
-    /** Staff feedback note when status = needs_revision. Shown to client in the brief editor. */
-    revisionNote: text("revision_note"),
-    submittedAt: timestamp("submitted_at", { withTimezone: true }),
-    submittedByUserId: uuid("submitted_by_user_id").references(() => users.id, {
-      onDelete: "set null",
-    }),
-    updatedAt: timestamp("updated_at", { withTimezone: true })
+    sectionSlug: nvarchar("section_slug", { length: 255 }).notNull(),
+    status: nvarchar("status", { length: 20 })
       .notNull()
-      .defaultNow(),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
+      .default("not_started")
+      .$type<ContentBriefStatus>(),
+    content: jsonMssql<BriefContent>("content").notNull().default({} as BriefContent),
+    revisionNote: nvarchar("revision_note", { length: "max" }),
+    submittedAt: datetimeoffset("submitted_at"),
+    submittedByUserId: uniqueidentifier("submitted_by_user_id").references(
+      () => users.id,
+      { onDelete: "set null" },
+    ),
+    updatedAt: datetimeoffset("updated_at").notNull().defaultNow(),
+    createdAt: datetimeoffset("created_at").notNull().defaultNow(),
   },
   (table) => ({
     projectSectionIdx: uniqueIndex("content_briefs_project_section_idx").on(
@@ -343,30 +316,31 @@ export const contentBriefs = pgTable(
   }),
 );
 
-export const files = pgTable(
+export const files = mssqlTable(
   "files",
   {
-    id: uuid("id").primaryKey().defaultRandom(),
-    projectId: uuid("project_id")
+    id: uniqueidentifier("id").primaryKey().defaultRandom(),
+    projectId: uniqueidentifier("project_id")
       .notNull()
       .references(() => projects.id, { onDelete: "cascade" }),
-    uploadedByUserId: uuid("uploaded_by_user_id").references(() => users.id, {
-      onDelete: "set null",
-    }),
-    category: text("category").notNull(),
-    filename: text("filename").notNull(),
-    storageKey: text("storage_key").notNull(),
+    uploadedByUserId: uniqueidentifier("uploaded_by_user_id").references(
+      () => users.id,
+      { onDelete: "set null" },
+    ),
+    category: nvarchar("category", { length: 255 }).notNull(),
+    filename: nvarchar("filename", { length: 500 }).notNull(),
+    storageKey: nvarchar("storage_key", { length: 500 }).notNull(),
     sizeBytes: bigint("size_bytes", { mode: "number" }).notNull(),
-    mimeType: text("mime_type").notNull(),
-    scanStatus: fileScanStatusEnum("scan_status").notNull().default("pending"),
-    scanCompletedAt: timestamp("scan_completed_at", { withTimezone: true }),
-    scanDetails: jsonb("scan_details").$type<Record<string, unknown>>(),
-    /** Previous version of this file when replaced — older versions kept for recovery. */
-    supersededById: uuid("superseded_by_id"),
-    isFinal: boolean("is_final").notNull().default(false),
-    createdAt: timestamp("created_at", { withTimezone: true })
+    mimeType: nvarchar("mime_type", { length: 255 }).notNull(),
+    scanStatus: nvarchar("scan_status", { length: 20 })
       .notNull()
-      .defaultNow(),
+      .default("pending")
+      .$type<FileScanStatus>(),
+    scanCompletedAt: datetimeoffset("scan_completed_at"),
+    scanDetails: jsonMssql<Record<string, unknown>>("scan_details"),
+    supersededById: uniqueidentifier("superseded_by_id"),
+    isFinal: bit("is_final").notNull().default(false),
+    createdAt: datetimeoffset("created_at").notNull().defaultNow(),
   },
   (table) => ({
     projectCategoryIdx: index("files_project_category_idx").on(
@@ -381,39 +355,39 @@ export const files = pgTable(
 /* Notes, activity, audit, email                                      */
 /* ------------------------------------------------------------------ */
 
-export const internalNotes = pgTable(
+export const internalNotes = mssqlTable(
   "internal_notes",
   {
-    id: uuid("id").primaryKey().defaultRandom(),
-    projectId: uuid("project_id")
+    id: uniqueidentifier("id").primaryKey().defaultRandom(),
+    projectId: uniqueidentifier("project_id")
       .notNull()
       .references(() => projects.id, { onDelete: "cascade" }),
-    authorUserId: uuid("author_user_id")
+    authorUserId: uniqueidentifier("author_user_id")
       .notNull()
       .references(() => users.id, { onDelete: "restrict" }),
-    body: text("body").notNull(),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
+    body: nvarchar("body", { length: "max" }).notNull(),
+    createdAt: datetimeoffset("created_at").notNull().defaultNow(),
   },
   (table) => ({
     projectIdx: index("internal_notes_project_idx").on(table.projectId),
   }),
 );
 
-export const activityLog = pgTable(
+export const activityLog = mssqlTable(
   "activity_log",
   {
-    id: uuid("id").primaryKey().defaultRandom(),
-    projectId: uuid("project_id")
+    id: uniqueidentifier("id").primaryKey().defaultRandom(),
+    projectId: uniqueidentifier("project_id")
       .notNull()
       .references(() => projects.id, { onDelete: "cascade" }),
-    userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
-    action: text("action").notNull(),
-    metadata: jsonb("metadata").$type<Record<string, unknown>>().default({}),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
+    userId: uniqueidentifier("user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    action: nvarchar("action", { length: 255 }).notNull(),
+    metadata: jsonMssql<Record<string, unknown>>("metadata").default(
+      {} as Record<string, unknown>,
+    ),
+    createdAt: datetimeoffset("created_at").notNull().defaultNow(),
   },
   (table) => ({
     projectCreatedIdx: index("activity_log_project_created_idx").on(
@@ -423,20 +397,22 @@ export const activityLog = pgTable(
   }),
 );
 
-export const auditLog = pgTable(
+export const auditLog = mssqlTable(
   "audit_log",
   {
-    id: uuid("id").primaryKey().defaultRandom(),
-    userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
-    action: text("action").notNull(),
-    targetType: text("target_type"),
-    targetId: text("target_id"),
-    ipAddress: text("ip_address"),
-    userAgent: text("user_agent"),
-    metadata: jsonb("metadata").$type<Record<string, unknown>>().default({}),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
+    id: uniqueidentifier("id").primaryKey().defaultRandom(),
+    userId: uniqueidentifier("user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    action: nvarchar("action", { length: 255 }).notNull(),
+    targetType: nvarchar("target_type", { length: 100 }),
+    targetId: nvarchar("target_id", { length: 255 }),
+    ipAddress: nvarchar("ip_address", { length: 45 }),
+    userAgent: nvarchar("user_agent", { length: "max" }),
+    metadata: jsonMssql<Record<string, unknown>>("metadata").default(
+      {} as Record<string, unknown>,
+    ),
+    createdAt: datetimeoffset("created_at").notNull().defaultNow(),
   },
   (table) => ({
     userCreatedIdx: index("audit_log_user_created_idx").on(
@@ -446,25 +422,30 @@ export const auditLog = pgTable(
   }),
 );
 
-export const emailDeliveryLog = pgTable(
+export const emailDeliveryLog = mssqlTable(
   "email_delivery_log",
   {
-    id: uuid("id").primaryKey().defaultRandom(),
-    toEmail: text("to_email").notNull(),
-    fromEmail: text("from_email").notNull(),
-    subject: text("subject").notNull(),
-    template: text("template").notNull(),
-    projectId: uuid("project_id").references(() => projects.id, {
+    id: uniqueidentifier("id").primaryKey().defaultRandom(),
+    toEmail: nvarchar("to_email", { length: 255 }).notNull(),
+    fromEmail: nvarchar("from_email", { length: 255 }).notNull(),
+    subject: nvarchar("subject", { length: 500 }).notNull(),
+    template: nvarchar("template", { length: 100 }).notNull(),
+    projectId: uniqueidentifier("project_id").references(() => projects.id, {
       onDelete: "set null",
     }),
-    userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
-    providerMessageId: text("provider_message_id"),
-    status: emailStatusEnum("status").notNull().default("queued"),
-    error: text("error"),
-    metadata: jsonb("metadata").$type<Record<string, unknown>>().default({}),
-    createdAt: timestamp("created_at", { withTimezone: true })
+    userId: uniqueidentifier("user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    providerMessageId: nvarchar("provider_message_id", { length: 255 }),
+    status: nvarchar("status", { length: 20 })
       .notNull()
-      .defaultNow(),
+      .default("queued")
+      .$type<EmailStatus>(),
+    error: nvarchar("error", { length: "max" }),
+    metadata: jsonMssql<Record<string, unknown>>("metadata").default(
+      {} as Record<string, unknown>,
+    ),
+    createdAt: datetimeoffset("created_at").notNull().defaultNow(),
   },
   (table) => ({
     projectIdx: index("email_delivery_log_project_idx").on(table.projectId),
@@ -476,28 +457,20 @@ export const emailDeliveryLog = pgTable(
 /* Messaging                                                          */
 /* ------------------------------------------------------------------ */
 
-/**
- * Simple per-project message thread between the client and the TDO team.
- * isFromStaff = true  → sent by a staff member
- * readAt              → when the other party first read the message
- */
-export const projectMessages = pgTable(
+export const projectMessages = mssqlTable(
   "project_messages",
   {
-    id: uuid("id").primaryKey().defaultRandom(),
-    projectId: uuid("project_id")
+    id: uniqueidentifier("id").primaryKey().defaultRandom(),
+    projectId: uniqueidentifier("project_id")
       .notNull()
       .references(() => projects.id, { onDelete: "cascade" }),
-    userId: uuid("user_id")
+    userId: uniqueidentifier("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
-    body: text("body").notNull(),
-    isFromStaff: boolean("is_from_staff").notNull().default(false),
-    /** Timestamp when the recipient (other party) first read this message. */
-    readAt: timestamp("read_at", { withTimezone: true }),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
+    body: nvarchar("body", { length: "max" }).notNull(),
+    isFromStaff: bit("is_from_staff").notNull().default(false),
+    readAt: datetimeoffset("read_at"),
+    createdAt: datetimeoffset("created_at").notNull().defaultNow(),
   },
   (table) => ({
     projectCreatedIdx: index("project_messages_project_created_idx").on(
@@ -516,35 +489,21 @@ export const projectMessages = pgTable(
 /* Notifications                                                       */
 /* ------------------------------------------------------------------ */
 
-export const notificationTypeEnum = pgEnum("notification_type", [
-  "revision_requested",
-  "message_received",
-  "preview_ready",
-  "milestone_changed",
-  "brief_submitted",
-]);
-
-/**
- * Discrete in-app notifications for client users.
- * Staff notifications are handled via email for V1.
- */
-export const notifications = pgTable(
+export const notifications = mssqlTable(
   "notifications",
   {
-    id: uuid("id").primaryKey().defaultRandom(),
-    userId: uuid("user_id")
+    id: uniqueidentifier("id").primaryKey().defaultRandom(),
+    userId: uniqueidentifier("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
-    projectId: uuid("project_id").references(() => projects.id, {
+    projectId: uniqueidentifier("project_id").references(() => projects.id, {
       onDelete: "cascade",
     }),
-    type: notificationTypeEnum("type").notNull(),
-    body: text("body").notNull(),
-    linkHref: text("link_href"),
-    readAt: timestamp("read_at", { withTimezone: true }),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
+    type: nvarchar("type", { length: 30 }).notNull().$type<NotificationType>(),
+    body: nvarchar("body", { length: "max" }).notNull(),
+    linkHref: nvarchar("link_href", { length: 500 }),
+    readAt: datetimeoffset("read_at"),
+    createdAt: datetimeoffset("created_at").notNull().defaultNow(),
   },
   (table) => ({
     userCreatedIdx: index("notifications_user_created_idx").on(
@@ -558,20 +517,21 @@ export const notifications = pgTable(
   }),
 );
 
-export const kbArticles = pgTable(
+export const kbArticles = mssqlTable(
   "kb_articles",
   {
-    id: uuid("id").primaryKey().defaultRandom(),
-    title: text("title").notNull(),
-    content: text("content").notNull(),
-    category: text("category").notNull().default("general"),
-    tags: text("tags").array(),
-    active: boolean("active").notNull().default(true),
-    createdByUserId: uuid("created_by_user_id").references(() => users.id, {
-      onDelete: "set null",
-    }),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    id: uniqueidentifier("id").primaryKey().defaultRandom(),
+    title: nvarchar("title", { length: 500 }).notNull(),
+    content: nvarchar("content", { length: "max" }).notNull(),
+    category: nvarchar("category", { length: 100 }).notNull().default("general"),
+    tags: stringArrayMssql("tags"),
+    active: bit("active").notNull().default(true),
+    createdByUserId: uniqueidentifier("created_by_user_id").references(
+      () => users.id,
+      { onDelete: "set null" },
+    ),
+    updatedAt: datetimeoffset("updated_at").notNull().defaultNow(),
+    createdAt: datetimeoffset("created_at").notNull().defaultNow(),
   },
   (table) => ({
     categoryIdx: index("kb_articles_category_idx").on(table.category),
@@ -580,7 +540,7 @@ export const kbArticles = pgTable(
 );
 
 /* ------------------------------------------------------------------ */
-/* Relations                                                          */
+/* Relations (dialect-agnostic — unchanged from original)            */
 /* ------------------------------------------------------------------ */
 
 export const serviceTypesRelations = relations(serviceTypes, ({ many }) => ({
