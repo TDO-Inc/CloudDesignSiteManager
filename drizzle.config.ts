@@ -3,10 +3,15 @@ import { defineConfig } from "drizzle-kit";
 export default defineConfig({
   schema: "./src/lib/db/schema.ts",
   out: "./drizzle",
-  dialect: "postgresql",
+  // drizzle-kit@mssql pre-release — "mssql" is not yet in the published type union
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  dialect: "mssql" as any,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   dbCredentials: {
-    url: process.env.DATABASE_URL ?? "postgresql://localhost:5432/tdo_portal",
-  },
+    connectionString:
+      process.env.DATABASE_URL ??
+      "Server=localhost,1433;Database=tdo_portal;User Id=sa;Password=YourStrong@Password1;Encrypt=False;TrustServerCertificate=True;",
+  } as any,
   strict: true,
   verbose: true,
 });
