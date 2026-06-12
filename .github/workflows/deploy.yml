@@ -1,0 +1,61 @@
+name: Deploy to Azure App Service
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-and-deploy:
+    name: Build & Deploy
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # NEXT_PUBLIC_* vars are baked into the client bundle at build time.
+      # DATABASE_URL is needed because some routes use static generation with DB queries.
+      # All other vars are read at runtime from Azure App Settings — not required here.
+      - name: Build
+        run: npm run build
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          NEXT_PUBLIC_APP_URL: ${{ vars.NEXT_PUBLIC_APP_URL }}
+          NEXT_PUBLIC_SENTRY_DSN: ${{ secrets.NEXT_PUBLIC_SENTRY_DSN }}
+          SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
+
+      - name: Remove dev dependencies
+        run: npm prune --omit=dev
+
+      - name: Zip for deployment
+        run: |
+          zip -r deploy.zip . \
+            --exclude=".git/*" \
+            --exclude=".github/*" \
+            --exclude="coverage/*"
+
+      # Requires AZURE_WEBAPP_NAME (var) and AZURE_WEBAPP_PUBLISH_PROFILE (secret)
+      # to be set in the GitHub environment named "production".
+      # Download the publish profile from: Azure Portal → App Service → Overview → Get publish profile
+      #
+      # Also set these Application Settings on the Azure App Service:
+      #   DATABASE_URL, SESSION_SECRET, RESEND_API_KEY, EMAIL_FROM, EMAIL_FROM_NAME,
+      #   AZURE_STORAGE_ACCOUNT, AZURE_STORAGE_ACCOUNT_KEY, AZURE_STORAGE_CONTAINER,
+      #   SCAN_PROVIDER, STAFF_AUTH_PROVIDER, ANTHROPIC_API_KEY, SENTRY_DSN,
+      #   NEXT_PUBLIC_APP_URL, NEXT_PUBLIC_SENTRY_DSN, MAGIC_LINK_TTL_MINUTES
+      #
+      # Startup command (Azure App Service → Configuration → General settings):
+      #   npm start
+      - name: Deploy to Azure App Service
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ vars.AZURE_WEBAPP_NAME }}
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          package: deploy.zip
