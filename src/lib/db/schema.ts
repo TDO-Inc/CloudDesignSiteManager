@@ -17,10 +17,12 @@ import {
 /* ------------------------------------------------------------------ */
 
 // SQL Server UNIQUEIDENTIFIER column (UUID equivalent).
+// toDriver/fromDriver normalize to lowercase so app-level comparisons work correctly
+// (SQL Server's mssql driver returns GUIDs as uppercase strings).
 const uniqueidentifier = customType<{ data: string; driverData: string }>({
-  dataType() {
-    return "uniqueidentifier";
-  },
+  dataType() { return "uniqueidentifier"; },
+  toDriver(value: string): string { return value.toLowerCase(); },
+  fromDriver(value: string): string { return value.toLowerCase(); },
 });
 
 // Stores typed JSON as nvarchar(max) with automatic serialization.
@@ -136,7 +138,7 @@ export const serviceTypes = mssqlTable("service_types", {
   name: nvarchar("name", { length: "max" }).notNull(),
   slug: nvarchar("slug", { length: 255 }).notNull().unique(),
   active: bit("active").notNull().default(true),
-  createdAt: datetimeOffset("created_at").notNull().default(sql`GETDATE()`),
+  createdAt: datetimeOffset("created_at").notNull().default(sql`SYSDATETIMEOFFSET()`),
 });
 
 export const projectTemplates = mssqlTable(
@@ -156,7 +158,7 @@ export const projectTemplates = mssqlTable(
       .default({} as TemplateDefaultSettings),
     version: int("version").notNull().default(1),
     active: bit("active").notNull().default(true),
-    createdAt: datetimeOffset("created_at").notNull().default(sql`GETDATE()`),
+    createdAt: datetimeOffset("created_at").notNull().default(sql`SYSDATETIMEOFFSET()`),
   },
   (table) => [
     index("project_templates_service_type_idx").on(table.serviceTypeId),
@@ -168,14 +170,14 @@ export const offices = mssqlTable("offices", {
   name: nvarchar("name", { length: "max" }).notNull(),
   slug: nvarchar("slug", { length: 255 }).notNull().unique(),
   active: bit("active").notNull().default(true),
-  createdAt: datetimeOffset("created_at").notNull().default(sql`GETDATE()`),
+  createdAt: datetimeOffset("created_at").notNull().default(sql`SYSDATETIMEOFFSET()`),
 });
 
 export const organizations = mssqlTable("organizations", {
   id: uniqueidentifier("id").primaryKey().default(sql`NEWID()`),
   name: nvarchar("name", { length: "max" }).notNull(),
   hubspotCompanyId: nvarchar("hubspot_company_id", { length: 255 }),
-  createdAt: datetimeOffset("created_at").notNull().default(sql`GETDATE()`),
+  createdAt: datetimeOffset("created_at").notNull().default(sql`SYSDATETIMEOFFSET()`),
 });
 
 /* ------------------------------------------------------------------ */
@@ -191,7 +193,7 @@ export const users = mssqlTable("users", {
   isAdmin: bit("is_admin").notNull().default(false),
   deactivatedAt: datetimeOffset("deactivated_at"),
   lastLoginAt: datetimeOffset("last_login_at"),
-  createdAt: datetimeOffset("created_at").notNull().default(sql`GETDATE()`),
+  createdAt: datetimeOffset("created_at").notNull().default(sql`SYSDATETIMEOFFSET()`),
 });
 
 export const magicLinks = mssqlTable(
@@ -206,7 +208,7 @@ export const magicLinks = mssqlTable(
     usedAt: datetimeOffset("used_at"),
     requestedIp: nvarchar("requested_ip", { length: 45 }),
     userAgent: nvarchar("user_agent", { length: "max" }),
-    createdAt: datetimeOffset("created_at").notNull().default(sql`GETDATE()`),
+    createdAt: datetimeOffset("created_at").notNull().default(sql`SYSDATETIMEOFFSET()`),
   },
   (table) => [
     uniqueIndex("magic_links_token_hash_idx").on(table.tokenHash),
@@ -257,7 +259,7 @@ export const projects = mssqlTable(
     mondayItemId: nvarchar("monday_item_id", { length: 255 }),
     launchedAt: datetimeOffset("launched_at"),
     archivedAt: datetimeOffset("archived_at"),
-    createdAt: datetimeOffset("created_at").notNull().default(sql`GETDATE()`),
+    createdAt: datetimeOffset("created_at").notNull().default(sql`SYSDATETIMEOFFSET()`),
   },
   (table) => [
     index("projects_organization_idx").on(table.organizationId),
@@ -276,7 +278,7 @@ export const projectMembers = mssqlTable(
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
     role: nvarchar("role", { length: 20 }).notNull().$type<ProjectMemberRole>(),
-    addedAt: datetimeOffset("added_at").notNull().default(sql`GETDATE()`),
+    addedAt: datetimeOffset("added_at").notNull().default(sql`SYSDATETIMEOFFSET()`),
   },
   (table) => [
     primaryKey({ columns: [table.projectId, table.userId] }),
@@ -309,8 +311,8 @@ export const contentBriefs = mssqlTable(
       () => users.id,
       { onDelete: "set null" },
     ),
-    updatedAt: datetimeOffset("updated_at").notNull().default(sql`GETDATE()`),
-    createdAt: datetimeOffset("created_at").notNull().default(sql`GETDATE()`),
+    updatedAt: datetimeOffset("updated_at").notNull().default(sql`SYSDATETIMEOFFSET()`),
+    createdAt: datetimeOffset("created_at").notNull().default(sql`SYSDATETIMEOFFSET()`),
   },
   (table) => [
     uniqueIndex("content_briefs_project_section_idx").on(
@@ -344,7 +346,7 @@ export const files = mssqlTable(
     scanDetails: jsonMssql<Record<string, unknown>>("scan_details"),
     supersededById: uniqueidentifier("superseded_by_id"),
     isFinal: bit("is_final").notNull().default(false),
-    createdAt: datetimeOffset("created_at").notNull().default(sql`GETDATE()`),
+    createdAt: datetimeOffset("created_at").notNull().default(sql`SYSDATETIMEOFFSET()`),
   },
   (table) => [
     index("files_project_category_idx").on(table.projectId, table.category),
@@ -367,7 +369,7 @@ export const internalNotes = mssqlTable(
       .notNull()
       .references(() => users.id, { onDelete: "restrict" }),
     body: nvarchar("body", { length: "max" }).notNull(),
-    createdAt: datetimeOffset("created_at").notNull().default(sql`GETDATE()`),
+    createdAt: datetimeOffset("created_at").notNull().default(sql`SYSDATETIMEOFFSET()`),
   },
   (table) => [
     index("internal_notes_project_idx").on(table.projectId),
@@ -388,7 +390,7 @@ export const activityLog = mssqlTable(
     metadata: jsonMssql<Record<string, unknown>>("metadata").default(
       {} as Record<string, unknown>,
     ),
-    createdAt: datetimeOffset("created_at").notNull().default(sql`GETDATE()`),
+    createdAt: datetimeOffset("created_at").notNull().default(sql`SYSDATETIMEOFFSET()`),
   },
   (table) => [
     index("activity_log_project_created_idx").on(
@@ -413,7 +415,7 @@ export const auditLog = mssqlTable(
     metadata: jsonMssql<Record<string, unknown>>("metadata").default(
       {} as Record<string, unknown>,
     ),
-    createdAt: datetimeOffset("created_at").notNull().default(sql`GETDATE()`),
+    createdAt: datetimeOffset("created_at").notNull().default(sql`SYSDATETIMEOFFSET()`),
   },
   (table) => [
     index("audit_log_user_created_idx").on(table.userId, table.createdAt),
@@ -443,7 +445,7 @@ export const emailDeliveryLog = mssqlTable(
     metadata: jsonMssql<Record<string, unknown>>("metadata").default(
       {} as Record<string, unknown>,
     ),
-    createdAt: datetimeOffset("created_at").notNull().default(sql`GETDATE()`),
+    createdAt: datetimeOffset("created_at").notNull().default(sql`SYSDATETIMEOFFSET()`),
   },
   (table) => [
     index("email_delivery_log_project_idx").on(table.projectId),
@@ -468,7 +470,7 @@ export const projectMessages = mssqlTable(
     body: nvarchar("body", { length: "max" }).notNull(),
     isFromStaff: bit("is_from_staff").notNull().default(false),
     readAt: datetimeOffset("read_at"),
-    createdAt: datetimeOffset("created_at").notNull().default(sql`GETDATE()`),
+    createdAt: datetimeOffset("created_at").notNull().default(sql`SYSDATETIMEOFFSET()`),
   },
   (table) => [
     index("project_messages_project_created_idx").on(
@@ -501,7 +503,7 @@ export const notifications = mssqlTable(
     body: nvarchar("body", { length: "max" }).notNull(),
     linkHref: nvarchar("link_href", { length: 500 }),
     readAt: datetimeOffset("read_at"),
-    createdAt: datetimeOffset("created_at").notNull().default(sql`GETDATE()`),
+    createdAt: datetimeOffset("created_at").notNull().default(sql`SYSDATETIMEOFFSET()`),
   },
   (table) => [
     index("notifications_user_created_idx").on(table.userId, table.createdAt),
@@ -522,8 +524,8 @@ export const kbArticles = mssqlTable(
       () => users.id,
       { onDelete: "set null" },
     ),
-    updatedAt: datetimeOffset("updated_at").notNull().default(sql`GETDATE()`),
-    createdAt: datetimeOffset("created_at").notNull().default(sql`GETDATE()`),
+    updatedAt: datetimeOffset("updated_at").notNull().default(sql`SYSDATETIMEOFFSET()`),
+    createdAt: datetimeOffset("created_at").notNull().default(sql`SYSDATETIMEOFFSET()`),
   },
   (table) => [
     index("kb_articles_category_idx").on(table.category),
