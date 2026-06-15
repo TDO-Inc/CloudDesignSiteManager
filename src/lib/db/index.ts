@@ -42,6 +42,16 @@ function getDb(): NodeMsSqlDatabase<typeof schema> {
 }
 
 /**
+ * For CLI scripts: awaits the connection pool before the first query.
+ * Next.js server code doesn't need this — the pool connects during startup,
+ * well before the first request arrives.
+ */
+export async function connectDb(): Promise<void> {
+  getDb(); // ensures __mssqlPool is initialized
+  await global.__mssqlPool!.connect(); // no-op if already connected/connecting
+}
+
+/**
  * Drizzle client — actual connection is created on first access, not at
  * module load, so `next build` can collect page data without DATABASE_URL.
  */

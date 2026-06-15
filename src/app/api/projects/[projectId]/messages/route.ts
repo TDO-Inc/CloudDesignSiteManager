@@ -11,7 +11,7 @@ import {
 } from "@/lib/db/schema";
 import { getCurrentClient, getCurrentStaff } from "@/lib/auth/current-user";
 import { isMemberOfProject } from "@/lib/projects/queries";
-import { sendEmail } from "@/lib/email/resend";
+import { sendEmail } from "@/lib/email/sendgrid";
 import { newMessageEmail, projectUrlFor } from "@/lib/email/templates/notifications";
 
 export const runtime = "nodejs";

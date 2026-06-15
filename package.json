@@ -37,6 +37,7 @@
     "@radix-ui/react-tabs": "latest",
     "@radix-ui/react-toast": "latest",
     "@radix-ui/react-tooltip": "latest",
+    "@sendgrid/mail": "^8.1.6",
     "@sentry/nextjs": "^10.0.0",
     "@tabler/icons-react": "^3.30.0",
     "archiver": "^7.0.1",
@@ -53,7 +54,6 @@
     "react-dom": "^19.0.0",
     "react-dropzone": "^14.3.6",
     "react-hook-form": "^7.55.0",
-    "resend": "^4.6.0",
     "tailwind-merge": "^3.0.2",
     "tailwindcss-animate": "^1.0.7",
     "zod": "^3.24.1"

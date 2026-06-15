@@ -21,7 +21,7 @@ import {
 } from "@/lib/db/schema";
 import { requireStaff } from "@/lib/auth/current-user";
 import { requestMagicLink } from "@/lib/auth/magic-link";
-import { sendEmail } from "@/lib/email/resend";
+import { sendEmail } from "@/lib/email/sendgrid";
 import { magicLinkEmail } from "@/lib/email/templates/magic-link";
 
 export const runtime = "nodejs";

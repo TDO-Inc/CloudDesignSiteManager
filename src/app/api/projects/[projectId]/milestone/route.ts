@@ -4,7 +4,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { projects, activityLog } from "@/lib/db/schema";
 import { requireStaff } from "@/lib/auth/current-user";
-import { sendEmail } from "@/lib/email/resend";
+import { sendEmail } from "@/lib/email/sendgrid";
 import { statusChangedEmail, projectUrlFor } from "@/lib/email/templates/notifications";
 
 export const runtime = "nodejs";

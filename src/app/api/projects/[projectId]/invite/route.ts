@@ -4,7 +4,7 @@ import { db } from "@/lib/db";
 import { projects, activityLog } from "@/lib/db/schema";
 import { getCurrentStaff } from "@/lib/auth/current-user";
 import { requestMagicLink, MagicLinkError } from "@/lib/auth/magic-link";
-import { sendEmail } from "@/lib/email/resend";
+import { sendEmail } from "@/lib/email/sendgrid";
 import { clientInviteEmail, projectUrlFor } from "@/lib/email/templates/notifications";
 
 export const runtime = "nodejs";

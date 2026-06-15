@@ -10,7 +10,7 @@
 
 import "dotenv/config";
 import { eq, and } from "drizzle-orm";
-import { db } from "./index";
+import { db, connectDb } from "./index";
 import {
   serviceTypes,
   projectTemplates,
@@ -124,6 +124,7 @@ async function ensureAdmin(email: string, name: string, password: string) {
 }
 
 async function main() {
+  await connectDb();
   console.log("Seeding service types…");
   const websiteDesign = await ensureServiceType("Website Design", "website-design");
   console.log(`  ✔ ${websiteDesign.name} (${websiteDesign.id})`);

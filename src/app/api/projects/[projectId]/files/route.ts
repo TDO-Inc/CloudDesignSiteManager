@@ -14,7 +14,7 @@ import { files, projects, activityLog } from "@/lib/db/schema";
 import { getCurrentClient, getCurrentStaff } from "@/lib/auth/current-user";
 import { isMemberOfProject } from "@/lib/projects/queries";
 import { getScanProvider } from "@/lib/storage/scan-providers";
-import { sendEmail } from "@/lib/email/resend";
+import { sendEmail } from "@/lib/email/sendgrid";
 import { fileUploadedEmail, projectUrlFor } from "@/lib/email/templates/notifications";
 
 export const runtime = "nodejs";

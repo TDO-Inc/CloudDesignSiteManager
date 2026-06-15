@@ -9,7 +9,7 @@
 
 import "dotenv/config";
 import { eq } from "drizzle-orm";
-import { db } from "./index";
+import { db, connectDb } from "./index";
 import { kbArticles, users } from "./schema";
 
 // ---------------------------------------------------------------------------
@@ -507,6 +507,7 @@ Minor edits can still be made after launch — TDO manages your site content as 
 // ---------------------------------------------------------------------------
 
 async function main() {
+  await connectDb();
   console.log("Seeding knowledge base articles…\n");
 
   // Find any staff user to use as the author

@@ -10,7 +10,7 @@
 
 import "dotenv/config";
 import { eq } from "drizzle-orm";
-import { db } from "../lib/db";
+import { db, connectDb } from "../lib/db";
 import { users } from "../lib/db/schema";
 import { hashPassword } from "../lib/auth/password";
 
@@ -46,6 +46,7 @@ function parseArgs(): Args {
 }
 
 async function main() {
+  await connectDb();
   const args = parseArgs();
   const passwordHash = await hashPassword(args.password);
 

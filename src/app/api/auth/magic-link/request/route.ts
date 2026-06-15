@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requestMagicLink, MagicLinkError } from "@/lib/auth/magic-link";
-import { sendEmail } from "@/lib/email/resend";
+import { sendEmail } from "@/lib/email/sendgrid";
 import { magicLinkEmail } from "@/lib/email/templates/magic-link";
 import { db } from "@/lib/db";
 import { eq } from "drizzle-orm";

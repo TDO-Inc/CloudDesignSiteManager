@@ -36,7 +36,7 @@ jobs:
       # Download the publish profile from: Azure Portal → App Service → Overview → Get publish profile
       #
       # Also set these Application Settings on the Azure App Service:
-      #   DATABASE_URL, SESSION_SECRET, RESEND_API_KEY, EMAIL_FROM, EMAIL_FROM_NAME,
+      #   DATABASE_URL, SESSION_SECRET, SENDGRID_API_KEY, EMAIL_FROM, EMAIL_FROM_NAME,
       #   AZURE_STORAGE_ACCOUNT, AZURE_STORAGE_ACCOUNT_KEY, AZURE_STORAGE_CONTAINER,
       #   SCAN_PROVIDER, STAFF_AUTH_PROVIDER, ANTHROPIC_API_KEY, SENTRY_DSN,
       #   NEXT_PUBLIC_APP_URL, NEXT_PUBLIC_SENTRY_DSN, MAGIC_LINK_TTL_MINUTES
