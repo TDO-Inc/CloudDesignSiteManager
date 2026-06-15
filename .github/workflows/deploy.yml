@@ -49,10 +49,10 @@ jobs:
       #   AZURE_STORAGE_ACCOUNT, AZURE_STORAGE_ACCOUNT_KEY, AZURE_STORAGE_CONTAINER,
       #   SCAN_PROVIDER, STAFF_AUTH_PROVIDER, ANTHROPIC_API_KEY, SENTRY_DSN,
       #   NEXT_PUBLIC_APP_URL, NEXT_PUBLIC_SENTRY_DSN, MAGIC_LINK_TTL_MINUTES
-      #   SCM_DO_BUILD_DURING_DEPLOYMENT=true  ← installs node_modules on Azure after deploy
       #
       # Startup command (Azure App Service → Configuration → General settings):
-      #   npm start
+      #   npm ci --omit=dev && npm start
+      # (node_modules is excluded from the zip; this installs prod deps on first boot)
       - name: Deploy to Azure App Service
         uses: azure/webapps-deploy@v3
         with:
